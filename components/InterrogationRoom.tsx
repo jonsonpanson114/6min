@@ -51,9 +51,13 @@ export const InterrogationRoom: React.FC<InterrogationRoomProps> = ({ onComplete
             const reply = await generateChatReply(history, personality);
 
             setMessages(prev => [...prev, { role: 'agent', text: reply }]);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            setMessages(prev => [...prev, { role: 'agent', text: "（...通信が途切れたようだ。もう一度言ってくれるか？）" }]);
+            let errorMsg = "（...通信が途切れたようだ。もう一度言ってくれるか？）";
+            if (e.message?.includes("API_KEY")) {
+                errorMsg = "（...APIキーが正しく設定されていないようだ。設定を確認してくれ）";
+            }
+            setMessages(prev => [...prev, { role: 'agent', text: errorMsg }]);
         } finally {
             setIsTyping(false);
         }

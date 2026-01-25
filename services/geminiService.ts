@@ -95,7 +95,7 @@ ${inputContext}
     `;
 
   const model = genAI.getGenerativeModel({
-    model: "gemini-3.0-pro",
+    model: "gemini-3-pro-preview",
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: responseSchema,
@@ -104,8 +104,13 @@ ${inputContext}
     systemInstruction: personality === 'jinnai' ? JINNAI_INSTRUCTION : PHILOSOPHER_INSTRUCTION,
   });
 
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  try {
+    const result = await model.generateContent(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Gemini Feedback Error:", error);
+    throw error;
+  }
 };
 
 export const generateSouvenirImage = async (log: DailyLog): Promise<string | null> => {
@@ -120,7 +125,7 @@ No text. A visual metaphor for a fulfilling day.
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
     const result = await model.generateContent(prompt);
 
     // Note: Image gen in generative-ai SDK is usually handled via specific multimodal inputs 
@@ -151,7 +156,7 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-3.0-pro",
+      model: "gemini-3-pro-preview",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: parallelWorldSchema,
@@ -168,30 +173,35 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
 };
 
 export const generateChatReply = async (messages: { role: string; text: string }[], personality: Personality): Promise<string> => {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-3.0-flash",
-    systemInstruction: personality === 'jinnai'
-      ? JINNAI_INSTRUCTION + "\n目的：ユーザーと会話しながら、今日あった「良いこと」「親切にしたこと」「気づき」を聞き出すこと。ただし、尋問調ではなく、自然な会話の中で引き出せ。"
-      : PHILOSOPHER_INSTRUCTION + "\n目的：対話を通じてユーザーの一日を深掘りし、魂の輝き（良かったこと・善行・洞察）を見つけ出すこと。",
-  });
+  try {
+    const model = genAI.getGenerativeModel({
+      model: "gemini-3-flash-preview",
+      systemInstruction: personality === 'jinnai'
+        ? JINNAI_INSTRUCTION + "\n目的：ユーザーと会話しながら、今日あった「良いこと」「親切にしたこと」「気づき」を聞き出すこと。ただし、尋問調ではなく、自然な会話の中で引き出せ。"
+        : PHILOSOPHER_INSTRUCTION + "\n目的：対話を通じてユーザーの一日を深掘りし、魂の輝き（良かったこと・善行・洞察）を見つけ出すこと。",
+    });
 
-  // Gemini API requires history to start with 'user'. 
-  // We filter out any leading 'model' messages (like the component's initial greeting).
-  let historyMessages = messages.slice(0, -1).map(m => ({
-    role: m.role === 'user' ? 'user' : 'model',
-    parts: [{ text: m.text }],
-  }));
+    // Gemini API requires history to start with 'user'. 
+    // We filter out any leading 'model' messages (like the component's initial greeting).
+    let historyMessages = messages.slice(0, -1).map(m => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.text }],
+    }));
 
-  while (historyMessages.length > 0 && historyMessages[0].role === 'model') {
-    historyMessages.shift();
+    while (historyMessages.length > 0 && historyMessages[0].role === 'model') {
+      historyMessages.shift();
+    }
+
+    const chat = model.startChat({
+      history: historyMessages,
+    });
+
+    const result = await chat.sendMessage(messages[messages.length - 1].text);
+    return result.response.text();
+  } catch (error) {
+    console.error("Chat Reply Error:", error);
+    throw error;
   }
-
-  const chat = model.startChat({
-    history: historyMessages,
-  });
-
-  const result = await chat.sendMessage(messages[messages.length - 1].text);
-  return result.response.text();
 };
 
 export const extractLogFromChat = async (messages: { role: string; text: string }[]): Promise<EveningEntry | null> => {
@@ -210,7 +220,7 @@ export const extractLogFromChat = async (messages: { role: string; text: string 
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro",
+      model: "gemini-3-pro-preview",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: eveningEntrySchema,
