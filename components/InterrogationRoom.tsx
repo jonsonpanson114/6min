@@ -53,9 +53,11 @@ export const InterrogationRoom: React.FC<InterrogationRoomProps> = ({ onComplete
             setMessages(prev => [...prev, { role: 'agent', text: reply }]);
         } catch (e: any) {
             console.error(e);
-            let errorMsg = "（...通信が途切れたようだ。もう一度言ってくれるか？）";
-            if (e.message?.includes("API_KEY")) {
-                errorMsg = "（...APIキーが正しく設定されていないようだ。設定を確認してくれ）";
+            let errorMsg = `（...エラーが発生したようだ: ${e.message}）`;
+            if (e.message?.includes("環境変数")) {
+                errorMsg = "（...Netlifyの環境変数が設定されていないようだ。設定を確認してくれ）";
+            } else if (e.message?.includes("混み合って")) {
+                errorMsg = "（...今、Gemini 3がめちゃくちゃ混んでるみたいだぜ。少し時間を置いてみてくれ）";
             }
             setMessages(prev => [...prev, { role: 'agent', text: errorMsg }]);
         } finally {
