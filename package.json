@@ -1,11 +1,11 @@
 {
-  "name": "6minダイアリー",
+  "name": "six-min-diary",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
