@@ -1,12 +1,19 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { SchemaType } from "@google/generative-ai";
 import { DailyLog, Personality, EveningEntry } from "../types";
 
-const apiKey = (import.meta as any).env.VITE_API_KEY || "";
-if (!apiKey) {
-  console.error("API Key is missing! Make sure VITE_API_KEY is set in .env");
-  alert("APIキーが設定されていません。.envファイルを確認してください。");
-}
-const genAI = new GoogleGenerativeAI(apiKey);
+const callNetlifyFunction = async (action: string, payload: any) => {
+  const response = await fetch("/.netlify/functions/gemini", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, payload }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to call Netlify function");
+  }
+  const data = await response.json();
+  return data.result;
+};
 
 // Schema for response formatting
 const responseSchema = {
@@ -57,7 +64,6 @@ const JINNAI_INSTRUCTION = `あなたは伊坂幸太郎の小説『重力ピエ�
 - 返答はすべて「です・ます」ではなく「だ・である」調（タメ口）で書く。`;
 
 export const generateDailyFeedback = async (log: DailyLog, personality: Personality = 'philosopher', history: DailyLog[] = []): Promise<string> => {
-  // ユーザーの入力内容を整形してプロンプトに埋め込む
   const inputContext = `
 【朝の記録】
 - 感謝: ${log.morning?.gratitude.join(', ') || '未入力'}
@@ -94,8 +100,9 @@ ${inputContext}`
 ${inputContext}
     `;
 
-  const model = genAI.getGenerativeModel({
+  return await callNetlifyFunction("generateContent", {
     model: "gemini-3-pro-preview",
+    prompt,
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: responseSchema,
@@ -103,20 +110,11 @@ ${inputContext}
     },
     systemInstruction: personality === 'jinnai' ? JINNAI_INSTRUCTION : PHILOSOPHER_INSTRUCTION,
   });
-
-  try {
-    const result = await model.generateContent(prompt);
-    return result.response.text();
-  } catch (error) {
-    console.error("Gemini Feedback Error:", error);
-    throw error;
-  }
 };
 
 export const generateSouvenirImage = async (log: DailyLog): Promise<string | null> => {
   if (!log.evening) return null;
 
-  // 画像生成プロンプトもより情緒的に
   const prompt = `
 A masterpiece artistic illustration capturing the essence of this feeling: "${log.evening.goodThings.join(', ')}".
 The mood is "${log.evening.insights}".
@@ -125,13 +123,10 @@ No text. A visual metaphor for a fulfilling day.
   `;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
-    const result = await model.generateContent(prompt);
-
-    // Note: Image gen in generative-ai SDK is usually handled via specific multimodal inputs 
-    // or separate Imagen API. The original AI Studio mock used non-existent models.
-    // We'll leave the text generation structure for now.
-    return result.response.text();
+    return await callNetlifyFunction("generateContent", {
+      model: "gemini-3-flash-preview",
+      prompt,
+    });
   } catch (error) {
     console.error("Image gen error:", error);
     return null;
@@ -155,17 +150,16 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
   `;
 
   try {
-    const model = genAI.getGenerativeModel({
+    const resultStr = await callNetlifyFunction("generateContent", {
       model: "gemini-3-pro-preview",
+      prompt,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: parallelWorldSchema,
-        temperature: 1.3, // High creativity
+        temperature: 1.3,
       },
     });
-
-    const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
+    return JSON.parse(resultStr);
   } catch (error) {
     console.error("Parallel World gen error:", error);
     return null;
@@ -173,35 +167,23 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
 };
 
 export const generateChatReply = async (messages: { role: string; text: string }[], personality: Personality): Promise<string> => {
-  try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-3-flash-preview",
-      systemInstruction: personality === 'jinnai'
-        ? JINNAI_INSTRUCTION + "\n目的：ユーザーと会話しながら、今日あった「良いこと」「親切にしたこと」「気づき」を聞き出すこと。ただし、尋問調ではなく、自然な会話の中で引き出せ。"
-        : PHILOSOPHER_INSTRUCTION + "\n目的：対話を通じてユーザーの一日を深掘りし、魂の輝き（良かったこと・善行・洞察）を見つけ出すこと。",
-    });
+  let historyMessages = messages.slice(0, -1).map(m => ({
+    role: m.role === 'user' ? 'user' : 'model',
+    parts: [{ text: m.text }],
+  }));
 
-    // Gemini API requires history to start with 'user'. 
-    // We filter out any leading 'model' messages (like the component's initial greeting).
-    let historyMessages = messages.slice(0, -1).map(m => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.text }],
-    }));
-
-    while (historyMessages.length > 0 && historyMessages[0].role === 'model') {
-      historyMessages.shift();
-    }
-
-    const chat = model.startChat({
-      history: historyMessages,
-    });
-
-    const result = await chat.sendMessage(messages[messages.length - 1].text);
-    return result.response.text();
-  } catch (error) {
-    console.error("Chat Reply Error:", error);
-    throw error;
+  while (historyMessages.length > 0 && historyMessages[0].role === 'model') {
+    historyMessages.shift();
   }
+
+  return await callNetlifyFunction("chat", {
+    model: "gemini-3-flash-preview",
+    message: messages[messages.length - 1].text,
+    history: historyMessages,
+    systemInstruction: personality === 'jinnai'
+      ? JINNAI_INSTRUCTION + "\n目的：ユーザーと会話しながら、今日あった「良いこと」「親切にしたこと」「気づき」を聞き出すこと。ただし、尋問調ではなく、自然な会話の中で引き出せ。"
+      : PHILOSOPHER_INSTRUCTION + "\n目的：対話を通じてユーザーの一日を深掘りし、魂の輝き（良かったこと・善行・洞察）を見つけ出すこと。",
+  });
 };
 
 export const extractLogFromChat = async (messages: { role: string; text: string }[]): Promise<EveningEntry | null> => {
@@ -219,16 +201,15 @@ export const extractLogFromChat = async (messages: { role: string; text: string 
   `;
 
   try {
-    const model = genAI.getGenerativeModel({
+    const resultStr = await callNetlifyFunction("generateContent", {
       model: "gemini-3-pro-preview",
+      prompt,
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: eveningEntrySchema,
       },
     });
-
-    const result = await model.generateContent(prompt);
-    return JSON.parse(result.response.text());
+    return JSON.parse(resultStr);
   } catch (error) {
     console.error("Extraction error:", error);
     return null;
