@@ -3,6 +3,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
+const FALLBACK_MODELS: Record<string, string> = {
+  "gemini-3-flash-preview": "gemini-2.5-flash",
+  "gemini-3-pro-preview": "gemini-2.5-pro",
+};
+
 export const handler: Handler = async (event, context) => {
   console.log("Function triggered:", event.httpMethod);
 
@@ -18,47 +23,71 @@ export const handler: Handler = async (event, context) => {
     return { statusCode: 405, body: "Method Not Allowed" };
   }
 
-  try {
-    const { action, payload } = JSON.parse(event.body || "{}");
-    console.log(`Action: ${action}, Model: ${payload.model}`);
+  const { action, payload } = JSON.parse(event.body || "{}");
+  const primaryModelName = payload.model || "gemini-3-flash-preview";
+  const genAI = new GoogleGenerativeAI(apiKey);
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+  const executeWithRetry = async (modelName: string, attempt: number = 1): Promise<string> => {
+    try {
+      console.log(`Attempt ${attempt}: Calling ${modelName} for action ${action}`);
+      let result;
+      if (action === "generateContent") {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: payload.generationConfig,
+          systemInstruction: payload.systemInstruction,
+        });
+        const response = await model.generateContent(payload.prompt);
+        result = response.response.text();
+      } else if (action === "chat") {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: payload.systemInstruction,
+        });
+        const chat = model.startChat({
+          history: payload.history,
+        });
+        const response = await chat.sendMessage(payload.message);
+        result = response.response.text();
+      } else {
+        throw new Error("Invalid action");
+      }
+      return result;
+    } catch (error: any) {
+      console.error(`Error on attempt ${attempt} with ${modelName}:`, error.message);
 
-    let result;
-    if (action === "generateContent") {
-      const model = genAI.getGenerativeModel({
-        model: payload.model || "gemini-3-flash-preview",
-        generationConfig: payload.generationConfig,
-        systemInstruction: payload.systemInstruction,
-      });
-      const response = await model.generateContent(payload.prompt);
-      result = response.response.text();
-    } else if (action === "chat") {
-      const model = genAI.getGenerativeModel({
-        model: payload.model || "gemini-3-flash-preview",
-        systemInstruction: payload.systemInstruction,
-      });
-      const chat = model.startChat({
-        history: payload.history,
-      });
-      const response = await chat.sendMessage(payload.message);
-      result = response.response.text();
-    } else {
-      return { statusCode: 400, body: JSON.stringify({ error: "Invalid action" }) };
+      const isOverloaded = error.message?.includes("overloaded") || error.status === 503;
+      const canRetry = attempt < 2; // Retry once with the same model if overloaded
+
+      if (isOverloaded && canRetry) {
+        console.log("Model overloaded, retrying in 1s...");
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return executeWithRetry(modelName, attempt + 1);
+      }
+
+      // If still failing and it's a Gemini 3 model, try fallback
+      if (FALLBACK_MODELS[modelName] && modelName !== FALLBACK_MODELS[modelName]) {
+        console.log(`Switching to fallback model: ${FALLBACK_MODELS[modelName]}`);
+        return executeWithRetry(FALLBACK_MODELS[modelName], 1);
+      }
+
+      throw error;
     }
+  };
 
+  try {
+    const result = await executeWithRetry(primaryModelName);
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ result }),
     };
   } catch (error: any) {
-    console.error("Detailed Error in Netlify Function:", error);
+    console.error("Final Error in Netlify Function:", error);
 
-    // Handle specific Google API errors to be more user-friendly
     let userErrorMessage = "AIとの通信に失敗しました。";
     if (error.message?.includes("overloaded") || error.status === 503) {
-      userErrorMessage = "現在AIが混み合っているようです。数分後に再度お試しください。";
+      userErrorMessage = "現在AIが非常に混み合っており、安定版への切り替えも失敗しました。数分後に再度お試しください。";
     } else if (error.message?.includes("API key")) {
       userErrorMessage = "APIキーが無効、または設定が間違っている可能性があります。";
     }
