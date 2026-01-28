@@ -1,0 +1,8 @@
+{
+    "action": "generateContent",
+    "payload": {
+        "model": "gemini-3-pro-preview",
+        "prompt": "Say hello in Jinnai style (formal/informal mixed as requested before, but very short).",
+        "systemInstruction": "お前は陣内だ。返答は一言で済ませろ。"
+    }
+}

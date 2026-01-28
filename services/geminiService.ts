@@ -7,9 +7,19 @@ const callNetlifyFunction = async (action: string, payload: any) => {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, payload }),
   });
+
   if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error || "Failed to call Netlify function");
+    let errorMessage = "Failed to call Netlify function";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.error || errorMessage;
+    } catch {
+      // If response is not JSON (e.g., Netlify timeout HTML page)
+      if (response.status === 504 || response.status === 502) {
+        errorMessage = "通信がタイムアウトしました。もう一度お試しください。";
+      }
+    }
+    throw new Error(errorMessage);
   }
   const data = await response.json();
   return data.result;
@@ -101,7 +111,7 @@ ${inputContext}
     `;
 
   return await callNetlifyFunction("generateContent", {
-    model: "gemini-3-pro-preview",
+    model: "gemini-3-flash-preview",
     prompt,
     generationConfig: {
       responseMimeType: "application/json",
@@ -151,7 +161,7 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
 
   try {
     const resultStr = await callNetlifyFunction("generateContent", {
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       prompt,
       generationConfig: {
         responseMimeType: "application/json",
@@ -202,7 +212,7 @@ export const extractLogFromChat = async (messages: { role: string; text: string 
 
   try {
     const resultStr = await callNetlifyFunction("generateContent", {
-      model: "gemini-3-pro-preview",
+      model: "gemini-3-flash-preview",
       prompt,
       generationConfig: {
         responseMimeType: "application/json",
