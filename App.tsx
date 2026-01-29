@@ -669,6 +669,32 @@ const LogDetailModal: React.FC<{ log: DailyLog; onClose: () => void }> = ({ log,
                     </p>
                   </div>
                 )}
+
+                {/* Mission Section in Modal */}
+                {log.aiFeedback.nextMission && (
+                  <div className="bg-amber-50/50 p-6 rounded-[2.5rem] border border-amber-100 space-y-3 relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap size={18} className="text-amber-500" />
+                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Mission Archive</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const uttr = new SpeechSynthesisUtterance(log.aiFeedback!.eveningComment);
+                          uttr.pitch = 0.8;
+                          uttr.rate = 0.9;
+                          uttr.lang = 'ja-JP';
+                          window.speechSynthesis.speak(uttr);
+                        }}
+                        className="p-2 bg-white rounded-full shadow-sm text-indigo-500 hover:scale-110 transition-transform"
+                      >
+                        <Music size={14} />
+                      </button>
+                    </div>
+                    <p className="text-slate-800 font-bold leading-snug">「{log.aiFeedback.nextMission}」</p>
+                    {log.isMissionCompleted && <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 rounded text-[10px] font-black text-emerald-700 uppercase">Completed</div>}
+                  </div>
+                )}
               </div>
 
               <div className="p-8 bg-slate-100/50 rounded-[2.5rem] space-y-6">
