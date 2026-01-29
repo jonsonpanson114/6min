@@ -49,6 +49,25 @@ export const handler: Handler = async (event, context) => {
         });
         const response = await chat.sendMessage(payload.message);
         result = response.response.text();
+      } else if (action === "speech") {
+        const model = genAI.getGenerativeModel({
+          model: "gemini-2.5-flash", // Use 2.5 Flash for audio generation
+        });
+        const prompt = `あなたは「陣内」としてこのテキストを読み上げてください。
+性格: ぶっきらぼう、タメ口、少し不機嫌そうだが温かい。
+読み上げるテキスト: ${payload.text}`;
+
+        const response = await model.generateContent([
+          { text: prompt },
+          { text: "Output the response as high quality audio in MP3 format." }
+        ]);
+        // For now, if audio output is not directly available via Simple SDK, 
+        // we might return a status or use a workaround. 
+        // Note: Real multimodal audio output requires specific SDK handling.
+        // As a robust alternative for this environment, we'll return the text 
+        // and let the frontend use a specialized TTS if needed, or 
+        // assume the SDK supports response.response.audio() in the future.
+        result = response.response.text();
       } else {
         throw new Error("Invalid action");
       }

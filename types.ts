@@ -18,7 +18,8 @@ export interface AIFeedback {
   dailySummary: string;
   reflectionOnFollowUp: string;
   oneMinuteAction: string;
-  dailyTitle: string; // 今日の称号
+  dailyTitle: string;
+  nextMission?: string; // 次回ミッション
 }
 
 export interface DailyLog {
@@ -26,7 +27,8 @@ export interface DailyLog {
   morning?: MorningEntry;
   evening?: EveningEntry;
   aiFeedback?: AIFeedback;
-  souvenirImageUrl?: string; // AIが生成した画像
+  souvenirImageUrl?: string;
+  isMissionCompleted?: boolean; // ミッション達成フラグ
   updatedAt: number;
 }
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings } from './types';
-import { generateDailyFeedback, generateSouvenirImage, generateParallelStory } from './services/geminiService';
+import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, generateVoiceAudio } from './services/geminiService';
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import {
@@ -100,6 +100,12 @@ const App: React.FC = () => {
         ...logs,
         [todayStr]: { ...log, aiFeedback: feedback, souvenirImageUrl: imageUrl, updatedAt: Date.now() }
       };
+
+      // Auto-play voice if it's jinnai personality and it's evening feedback
+      if (settings.personality === 'jinnai' && feedback.eveningComment) {
+        // Voice playback logic will be handled here or via a dedicated button
+      }
+
       updateData(newLogs, withImage ? 100 : 50);
     } catch (error) {
       console.error("AI Error:", error);
@@ -271,6 +277,60 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Mission Section */}
+            {currentLog.aiFeedback.nextMission && (
+              <div className="mt-6 glass-panel p-6 rounded-3xl border-2 border-amber-200 bg-amber-50/30 animate-in zoom-in-95 duration-500">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Zap size={20} className="text-amber-500 animate-pulse" />
+                    <span className="text-xs font-black text-amber-600 uppercase tracking-widest leading-none">Jinnai's Mission</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        try {
+                          const audioData = await generateVoiceAudio(currentLog.aiFeedback!.eveningComment, settings.personality);
+                          // For now, use Web Speech API with styled parameters if raw audio is TBD
+                          const uttr = new SpeechSynthesisUtterance(currentLog.aiFeedback!.eveningComment);
+                          uttr.pitch = 0.8;
+                          uttr.rate = 0.9;
+                          uttr.lang = 'ja-JP';
+                          window.speechSynthesis.speak(uttr);
+                        } catch (e) {
+                          console.error("Voice error:", e);
+                        }
+                      }}
+                      className="p-2 bg-white rounded-full shadow-sm text-indigo-500 hover:scale-110 transition-transform"
+                      title="陣内の声を聴く"
+                    >
+                      <Music size={16} />
+                    </button>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 rounded-md border-amber-300 text-amber-500 focus:ring-amber-200"
+                        checked={currentLog.isMissionCompleted}
+                        onChange={(e) => {
+                          const newLogs = {
+                            ...logs,
+                            [todayStr]: { ...currentLog, isMissionCompleted: e.target.checked, updatedAt: Date.now() }
+                          };
+                          updateData(newLogs, e.target.checked ? 150 : -150); // Mission bonus
+                        }}
+                      />
+                      <span className="text-xs font-bold text-slate-500 group-hover:text-amber-600 transition-colors">達成！</span>
+                    </label>
+                  </div>
+                </div>
+                <p className="text-slate-800 font-black text-lg leading-snug">
+                  「{currentLog.aiFeedback.nextMission}」
+                </p>
+                <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                  {currentLog.isMissionCompleted ? "✨ ミッション達成！ +150 XP" : "明日これをこなせば XP を弾んでやるぜ。"}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </main>

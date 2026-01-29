@@ -36,8 +36,9 @@ const responseSchema = {
     reflectionOnFollowUp: { type: SchemaType.STRING },
     oneMinuteAction: { type: SchemaType.STRING },
     dailyTitle: { type: SchemaType.STRING },
+    nextMission: { type: SchemaType.STRING },
   },
-  required: ["morningComment", "eveningComment", "dailySummary", "reflectionOnFollowUp", "oneMinuteAction", "dailyTitle"],
+  required: ["morningComment", "eveningComment", "dailySummary", "reflectionOnFollowUp", "oneMinuteAction", "dailyTitle", "nextMission"],
 };
 
 const eveningEntrySchema = {
@@ -94,6 +95,8 @@ export const generateDailyFeedback = async (log: DailyLog, personality: Personal
   const prompt = personality === 'jinnai'
     ? `今日の日記を読んで、陣内としてコメントしろ。
 寝る前なんだから、不器用でもいいからユーザーを全肯定してやれ。陣内らしい斜に構えた態度は崩さず、でも「色々あったけど、お前は今日を生き抜いたんだからそれで十分だろ」っていうスタンスで自己肯定感をぶち上げろ。
+あ、それからお前らしい「無茶振りミッション」を一つ出せ。明日やるべき些細で変なことだ。
+
 過去の記録 ${historyContext} との繋がりがあればそこも「お前なりにやってるじゃねえか」みたいに拾ってやれ。
 
 ユーザーの入力データ:
@@ -105,6 +108,7 @@ ${inputContext}`
 【執筆の掟】
 1. **具体性の徹底:** ユーザーが書いた「具体的な言葉」を必ず引用してください。
 2. **物語の結合:** 朝の意図と夜の結果を繋ぎ、一日のストーリーを完結させてください。
+3. **明日のミッション:** ユーザーの成長を促すような、明日取り組むべき小さなミッションを一文で提示してください。
 
 ユーザーの入力データ:
 ${inputContext}
@@ -224,4 +228,11 @@ export const extractLogFromChat = async (messages: { role: string; text: string 
     console.error("Extraction error:", error);
     return null;
   }
+};
+
+export const generateVoiceAudio = async (text: string, personality: Personality): Promise<string> => {
+  return await callNetlifyFunction("speech", {
+    text,
+    personality
+  });
 };
