@@ -115,7 +115,7 @@ ${inputContext}
     `;
 
   return await callNetlifyFunction("generateContent", {
-    model: "gemini-1.5-flash",
+    model: "gemini-3-flash-preview",
     prompt,
     generationConfig: {
       responseMimeType: "application/json",
@@ -138,7 +138,7 @@ No text. A visual metaphor for a fulfilling day.
 
   try {
     return await callNetlifyFunction("generateContent", {
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       prompt,
     });
   } catch (error) {
@@ -165,7 +165,7 @@ export const generateParallelStory = async (log: DailyLog): Promise<{ story: str
 
   try {
     const resultStr = await callNetlifyFunction("generateContent", {
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       prompt,
       generationConfig: {
         responseMimeType: "application/json",
@@ -191,7 +191,7 @@ export const generateChatReply = async (messages: { role: string; text: string }
   }
 
   return await callNetlifyFunction("chat", {
-    model: "gemini-1.5-flash",
+    model: "gemini-3-flash-preview",
     message: messages[messages.length - 1].text,
     history: historyMessages,
     systemInstruction: personality === 'jinnai'
@@ -216,7 +216,7 @@ export const extractLogFromChat = async (messages: { role: string; text: string 
 
   try {
     const resultStr = await callNetlifyFunction("generateContent", {
-      model: "gemini-1.5-flash",
+      model: "gemini-3-flash-preview",
       prompt,
       generationConfig: {
         responseMimeType: "application/json",
