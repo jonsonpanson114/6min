@@ -51,13 +51,7 @@ export const handler: Handler = async (event, context) => {
         const response = await chat.sendMessage(payload.message);
         result = response.response.text();
       } else if (action === "speech") {
-        // High-end speech generation should also use gemini-2.0 or 3 multimodal
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const response = await model.generateContent([
-          { text: `Read this as Jinnai (rough, casual, but caring hidden): ${payload.text}` },
-          { text: "Output high quality audio narration." }
-        ]);
-        result = response.response.text(); // Placeholder for actual audio stream handling
+        result = payload.text; // Return text for Web Speech API fallback
       } else {
         throw new Error(`Invalid action: ${action}`);
       }
