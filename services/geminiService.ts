@@ -1,4 +1,4 @@
-import { SchemaType } from "@google/generative-ai";
+// import { SchemaType } from "@google/generative-ai";
 import { DailyLog, Personality, EveningEntry } from "../types";
 
 const callNetlifyFunction = async (action: string, payload: any) => {
@@ -28,38 +28,38 @@ const callNetlifyFunction = async (action: string, payload: any) => {
 // Schema for response formatting
 const responseSchema = {
   description: "Feedback structure",
-  type: SchemaType.OBJECT,
+  type: "object",
   properties: {
-    morningComment: { type: SchemaType.STRING },
-    eveningComment: { type: SchemaType.STRING },
-    dailySummary: { type: SchemaType.STRING },
-    reflectionOnFollowUp: { type: SchemaType.STRING },
-    oneMinuteAction: { type: SchemaType.STRING },
-    dailyTitle: { type: SchemaType.STRING },
-    nextMission: { type: SchemaType.STRING },
+    morningComment: { type: "string" },
+    eveningComment: { type: "string" },
+    dailySummary: { type: "string" },
+    reflectionOnFollowUp: { type: "string" },
+    oneMinuteAction: { type: "string" },
+    dailyTitle: { type: "string" },
+    nextMission: { type: "string" },
   },
   required: ["morningComment", "eveningComment", "dailySummary", "reflectionOnFollowUp", "oneMinuteAction", "dailyTitle", "nextMission"],
 };
 
 const eveningEntrySchema = {
   description: "Extracted diary entry from chat",
-  type: SchemaType.OBJECT,
+  type: "object",
   properties: {
-    goodThings: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-    kindness: { type: SchemaType.STRING },
-    insights: { type: SchemaType.STRING },
-    followUpQuestion: { type: SchemaType.STRING },
+    goodThings: { type: "array", items: { type: "string" } },
+    kindness: { type: "string" },
+    insights: { type: "string" },
+    followUpQuestion: { type: "string" },
   },
   required: ["goodThings", "kindness", "insights", "followUpQuestion"],
 };
 
 const parallelWorldSchema = {
   description: "Parallel World Story",
-  type: SchemaType.OBJECT,
+  type: "object",
   properties: {
-    story: { type: SchemaType.STRING, description: "もし別の選択をしていたら...というIFストーリー" },
-    divergencePoint: { type: SchemaType.STRING, description: "運命が分岐した瞬間" },
-    worldDescription: { type: SchemaType.STRING, description: "その並行世界の設定や雰囲気" },
+    story: { type: "string", description: "もし別の選択をしていたら...というIFストーリー" },
+    divergencePoint: { type: "string", description: "運命が分岐した瞬間" },
+    worldDescription: { type: "string", description: "その並行世界の設定や雰囲気" },
   },
   required: ["story", "divergencePoint", "worldDescription"],
 };

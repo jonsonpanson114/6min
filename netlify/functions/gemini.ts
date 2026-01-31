@@ -1,5 +1,5 @@
 import { Handler } from "@netlify/functions";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 const apiKey = process.env.GEMINI_API_KEY;
 
@@ -9,10 +9,9 @@ const FALLBACK_MODELS: Record<string, string> = {
 };
 
 export const handler: Handler = async (event, context) => {
-  console.log("Function triggered:", event.httpMethod);
+  console.log("[2026-ARCH] Netlify Function triggered via Next-Gen SDK");
 
   if (!apiKey) {
-    console.error("Error: GEMINI_API_KEY environment variable is missing.");
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "APIキーが設定されていません。" }),
@@ -24,60 +23,72 @@ export const handler: Handler = async (event, context) => {
   }
 
   const { action, payload } = JSON.parse(event.body || "{}");
-  // ALWAYS trust the requested model if it's latest, or use gemini-3-flash as default
-  const primaryModelName = payload.model || "gemini-3-flash-preview";
-  const genAI = new GoogleGenerativeAI(apiKey);
+  const modelName = payload.model || "gemini-3-flash-preview";
 
-  const executeWithRetry = async (modelName: string, attempt: number = 1): Promise<string> => {
+  // Initialize Next-Gen Client
+  const client = new GoogleGenAI({ apiKey });
+
+  const executeWithRetry = async (currentModel: string, attempt: number = 1): Promise<string> => {
     try {
-      console.log(`[LATEST] Attempt ${attempt}: Calling ${modelName} for action ${action}`);
+      console.log(`[SDK-GENAI] Attempt ${attempt}: ${currentModel} | Action: ${action}`);
+
       let result;
       if (action === "generateContent") {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: payload.generationConfig,
-          systemInstruction: payload.systemInstruction,
+        const response = await client.models.generateContent({
+          model: currentModel,
+          contents: [{ role: "user", parts: [{ text: payload.prompt }] }],
+          config: {
+            systemInstruction: payload.systemInstruction,
+            ...payload.generationConfig,
+            // Map common keys if payload uses old SDK format
+            responseMimeType: payload.generationConfig?.responseMimeType || "application/json",
+            responseSchema: payload.generationConfig?.responseSchema,
+            temperature: payload.generationConfig?.temperature,
+          }
         });
-        const response = await model.generateContent(payload.prompt);
-        result = response.response.text();
+        result = response.text;
       } else if (action === "chat") {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          systemInstruction: payload.systemInstruction,
+        // Chat in @google/genai is also handled via generateContent or startChat
+        // For robustness, we use the standard contents based approach
+        const response = await client.models.generateContent({
+          model: currentModel,
+          contents: [
+            ...payload.history.map((h: any) => ({
+              role: h.role === "model" ? "model" : "user",
+              parts: [{ text: h.parts[0].text }]
+            })),
+            { role: "user", parts: [{ text: payload.message }] }
+          ],
+          config: {
+            systemInstruction: payload.systemInstruction
+          }
         });
-        const chat = model.startChat({
-          history: payload.history,
-        });
-        const response = await chat.sendMessage(payload.message);
-        result = response.response.text();
+        result = response.text;
       } else if (action === "speech") {
-        result = payload.text; // Return text for Web Speech API fallback
+        result = payload.text; // Native TTS fallback
       } else {
-        throw new Error(`Invalid action: ${action}`);
+        throw new Error(`Unknown action: ${action}`);
       }
+
+      if (!result) throw new Error("AI returned an empty response.");
       return result;
+
     } catch (error: any) {
-      console.error(`[FAIL] ${modelName} (Attempt ${attempt}):`, error.message);
+      console.error(`[SDK-FAIL] ${currentModel} error:`, error.message);
 
-      const isRecoverable = error.message?.includes("overloaded") ||
-        error.message?.includes("503") ||
-        error.message?.includes("deadline") ||
-        error.status === 504 ||
-        error.status === 503;
+      const isBusy = error.message?.includes("503") || error.message?.includes("busy") || error.message?.includes("overloaded");
+      const canRetry = attempt < 3;
 
-      const canRetry = attempt < 3; // Retry more persistently for latest models
-
-      if (isRecoverable && canRetry) {
-        const delay = 1000 * attempt;
-        console.log(`Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return executeWithRetry(modelName, attempt + 1);
+      if (isBusy && canRetry) {
+        const backoff = 1000 * attempt;
+        await new Promise(r => setTimeout(r, backoff));
+        return executeWithRetry(currentModel, attempt + 1);
       }
 
-      // Latest-to-Latest fallback only
-      if (FALLBACK_MODELS[modelName] && modelName !== FALLBACK_MODELS[modelName]) {
-        console.log(`[FALLBACK] Switching ${modelName} -> ${FALLBACK_MODELS[modelName]}`);
-        return executeWithRetry(FALLBACK_MODELS[modelName], 1);
+      // Fallback Strategy
+      if (FALLBACK_MODELS[currentModel]) {
+        console.log(`[SDK-FALLBACK] ${currentModel} -> ${FALLBACK_MODELS[currentModel]}`);
+        return executeWithRetry(FALLBACK_MODELS[currentModel], 1);
       }
 
       throw error;
@@ -85,18 +96,18 @@ export const handler: Handler = async (event, context) => {
   };
 
   try {
-    const result = await executeWithRetry(primaryModelName);
+    const finalResult = await executeWithRetry(modelName);
     return {
       statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ result }),
+      body: JSON.stringify({ result: finalResult }),
     };
   } catch (error: any) {
-    console.error("Final Error in Netlify Function:", error);
+    console.error("[CRITICAL-API-ERROR]", error);
     return {
       statusCode: 500,
       body: JSON.stringify({
-        error: "最新AIとの通信に失敗しました。この2026年でも過負荷はあるようです。再試行してください。",
+        error: "最新SDKでも通信に失敗しました。2026年のネット環境を再確認してください。",
         details: error.message
       }),
     };
