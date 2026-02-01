@@ -2,7 +2,7 @@
 import { DailyLog, Personality, EveningEntry } from "../types";
 
 const callNetlifyFunction = async (action: string, payload: any) => {
-  const response = await fetch("/.netlify/functions/gemini", {
+  const response = await fetch("/api/gemini", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action, payload }),
