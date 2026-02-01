@@ -4,23 +4,30 @@ export const config = {
     maxDuration: 60, // Vercel Pro/Hobby limits
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: Request) {
     if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method Not Allowed" });
+        return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405 });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        return res.status(500).json({ error: "APIキーが設定されていません。" });
+        return new Response(JSON.stringify({ error: "APIキーが設定されていません。" }), { status: 500 });
     }
 
-    const { action, payload } = req.body;
-    const modelName = payload.model || "gemini-3-flash-preview";
+    let body;
+    try {
+        body = await req.json();
+    } catch (e) {
+        return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
+    }
+
+    const { action, payload } = body;
+    const modelName = payload?.model || "gemini-3-flash-preview";
     const client = new GoogleGenAI({ apiKey });
 
     const executeWithRetry = async (currentModel: string, attempt: number = 1): Promise<string> => {
         try {
-            console.log(`[VERCEL-SDK] Attempt ${attempt}: ${currentModel} | Action: ${action}`);
+            console.log(`[VERCEL-EDGE] Attempt ${attempt}: ${currentModel} | Action: ${action}`);
             let result;
 
             if (action === "generateContent") {
@@ -39,7 +46,7 @@ export default async function handler(req: any, res: any) {
                 const response = await client.models.generateContent({
                     model: currentModel,
                     contents: [
-                        ...payload.history.map((h: any) => ({
+                        ...(payload.history || []).map((h: any) => ({
                             role: h.role === "model" ? "model" : "user",
                             parts: [{ text: h.parts[0].text }]
                         })),
@@ -82,11 +89,14 @@ export default async function handler(req: any, res: any) {
 
     try {
         const finalResult = await executeWithRetry(modelName);
-        return res.status(200).json({ result: finalResult });
-    } catch (error: any) {
-        return res.status(500).json({
-            error: "Vercel移転後ですが、APIエラーが発生しました。",
-            details: error.message
+        return new Response(JSON.stringify({ result: finalResult }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
         });
+    } catch (error: any) {
+        return new Response(JSON.stringify({
+            error: "Vercel移転後のAPIエラーです。",
+            details: error.message
+        }), { status: 500 });
     }
 }
