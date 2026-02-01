@@ -1,32 +1,17 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
-        },
-        {
-            "src": "api/*.ts",
-            "use": "@vercel/node"
+    "functions": {
+        "api/gemini.ts": {
+            "maxDuration": 60
         }
-    ],
-    "routes": [
+    },
+    "rewrites": [
         {
-            "src": "/api/(.*)",
-            "dest": "/api/$1",
-            "check": true
+            "source": "/api/(.*)",
+            "destination": "/api/$1"
         },
         {
-            "src": "/assets/(.*)",
-            "dest": "/assets/$1",
-            "check": true
-        },
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }
