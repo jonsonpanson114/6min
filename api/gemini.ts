@@ -1,33 +1,27 @@
 import { GoogleGenAI } from "@google/genai";
 
-export const config = {
-    maxDuration: 60, // Vercel Pro/Hobby limits
-};
+export default async function handler(req: any, res: any) {
+    // Vercel handles CORS and methods, but let's be explicit
+    if (req.method === "OPTIONS") {
+        return res.status(200).end();
+    }
 
-export default async function handler(req: Request) {
     if (req.method !== "POST") {
-        return new Response(JSON.stringify({ error: "Method Not Allowed" }), { status: 405 });
+        return res.status(405).json({ error: "Method Not Allowed" });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        return new Response(JSON.stringify({ error: "APIキーが設定されていません。" }), { status: 500 });
+        return res.status(500).json({ error: "APIキーが設定されていません。" });
     }
 
-    let body;
-    try {
-        body = await req.json();
-    } catch (e) {
-        return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
-    }
-
-    const { action, payload } = body;
+    const { action, payload } = req.body;
     const modelName = payload?.model || "gemini-3-flash-preview";
     const client = new GoogleGenAI({ apiKey });
 
     const executeWithRetry = async (currentModel: string, attempt: number = 1): Promise<string> => {
         try {
-            console.log(`[VERCEL-EDGE] Attempt ${attempt}: ${currentModel} | Action: ${action}`);
+            console.log(`[VERCEL-NODE] Attempt ${attempt}: ${currentModel} | Action: ${action}`);
             let result;
 
             if (action === "generateContent") {
@@ -89,14 +83,11 @@ export default async function handler(req: Request) {
 
     try {
         const finalResult = await executeWithRetry(modelName);
-        return new Response(JSON.stringify({ result: finalResult }), {
-            status: 200,
-            headers: { "Content-Type": "application/json" }
-        });
+        return res.status(200).json({ result: finalResult });
     } catch (error: any) {
-        return new Response(JSON.stringify({
+        return res.status(500).json({
             error: "Vercel移転後のAPIエラーです。",
             details: error.message
-        }), { status: 500 });
+        });
     }
 }
