@@ -16,16 +16,16 @@
     "routes": [
         {
             "src": "/api/(.*)",
-            "dest": "/api/$1"
+            "dest": "/api/$1",
+            "check": true
         },
         {
-            "src": "/(.*)",
-            "dest": "/$1",
+            "src": "/assets/(.*)",
+            "dest": "/assets/$1",
             "check": true
         },
         {
             "src": "/(.*)",
-            "status": 200,
             "dest": "/index.html"
         }
     ]
