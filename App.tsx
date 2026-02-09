@@ -17,7 +17,10 @@ const App: React.FC = () => {
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
   const [stats, setStats] = useState<UserStats>({ xp: 0, streak: 0, totalEntries: 0 });
   const [loading, setLoading] = useState(false);
-  const [todayStr] = useState(new Date().toISOString().split('T')[0]);
+  const [todayStr] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
   const [settings, setSettings] = useState<UserSettings>({ personality: 'philosopher' });
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
@@ -69,7 +72,58 @@ const App: React.FC = () => {
       newStats.lastEntryDate = todayStr;
       setStats(newStats);
       localStorage.setItem('ai_diary_stats', JSON.stringify(newStats));
+
+      // Google Driveにコンテンツ保存
+      const todayLog = newLogs[todayStr];
+      if (todayLog) {
+        saveDiaryToDrive(todayLog);
+      }
     }
+  };
+
+  const saveDiaryToDrive = (log: DailyLog) => {
+    const markdown = formatDailyLogAsMarkdown(log);
+    fetch('/api/save-content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contentType: 'diary',
+        title: log.aiFeedback?.dailyTitle || log.date,
+        content: markdown,
+      }),
+    }).catch(e => console.warn('Failed to save to Drive:', e));
+  };
+
+  const formatDailyLogAsMarkdown = (log: DailyLog): string => {
+    let md = `# ${log.aiFeedback?.dailyTitle || log.date}\n\n`;
+
+    if (log.morning) {
+      md += `## 🌅 Morning\n`;
+      md += `### 感謝\n${log.morning.gratitude.map(g => `- ${g}`).join('\n')}\n\n`;
+      md += `### 今日の目標\n${log.morning.todayGoal}\n\n`;
+      md += `### スタンス\n${log.morning.stance}\n\n`;
+    }
+
+    if (log.evening) {
+      md += `## 🌙 Evening\n`;
+      md += `### 良かったこと\n${log.evening.goodThings.map(g => `- ${g}`).join('\n')}\n\n`;
+      md += `### 優しさ\n${log.evening.kindness}\n\n`;
+      md += `### 気づき\n${log.evening.insights}\n\n`;
+      if (log.evening.followUpQuestion) {
+        md += `### フォローアップ\n${log.evening.followUpQuestion}\n\n`;
+      }
+    }
+
+    if (log.aiFeedback) {
+      md += `## 🤖 AI Feedback\n`;
+      md += `### Summary\n> ${log.aiFeedback.dailySummary}\n\n`;
+      if (log.aiFeedback.morningComment) md += `### Morning Comment\n${log.aiFeedback.morningComment}\n\n`;
+      if (log.aiFeedback.eveningComment) md += `### Evening Comment\n${log.aiFeedback.eveningComment}\n\n`;
+      if (log.aiFeedback.oneMinuteAction) md += `### 1 Minute Action\n${log.aiFeedback.oneMinuteAction}\n\n`;
+      if (log.aiFeedback.nextMission) md += `### Mission\n${log.aiFeedback.nextMission}\n\n`;
+    }
+
+    return md;
   };
 
   const updateSettings = (newSettings: UserSettings) => {
@@ -213,7 +267,7 @@ const App: React.FC = () => {
             onSubmit={(e) => {
               const newLogs = { ...logs, [todayStr]: { ...currentLog, evening: e, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.evening ? 50 : 0);
-              triggerAIFeedback(newLogs[todayStr], true);
+              triggerAIFeedback(newLogs[todayStr], false);
             }}
             feedback={currentLog.aiFeedback?.eveningComment}
             isLoading={loading}
@@ -228,7 +282,7 @@ const App: React.FC = () => {
             onComplete={(e) => {
               const newLogs = { ...logs, [todayStr]: { ...currentLog, evening: e, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.evening ? 50 : 0);
-              triggerAIFeedback(newLogs[todayStr], true);
+              triggerAIFeedback(newLogs[todayStr], false);
               setActiveTab('evening'); // Show the results in evening view
             }}
           />

@@ -1,4 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
+import { sendLog } from "./drive-logger";
 
 export default async function handler(req: any, res: any) {
     // Vercel handles CORS and methods, but let's be explicit
@@ -16,8 +17,10 @@ export default async function handler(req: any, res: any) {
     }
 
     const { action, payload } = req.body;
-    const modelName = payload?.model || "gemini-3-flash-preview";
+    const modelName = payload?.model || "gemini-flash-latest";
     const client = new GoogleGenAI({ apiKey });
+
+    sendLog("INFO", `API呼出: ${action}`, { model: modelName });
 
     const executeWithRetry = async (currentModel: string, attempt: number = 1): Promise<string> => {
         try {
@@ -62,29 +65,25 @@ export default async function handler(req: any, res: any) {
 
         } catch (error: any) {
             console.error(`[VERCEL-FAIL] ${currentModel} error:`, error.message);
-            const isBusy = error.message?.includes("503") || error.message?.includes("busy") || error.message?.includes("overloaded");
+            sendLog(attempt < 3 ? "WARN" : "ERROR", `Gemini失敗: ${currentModel} (試行${attempt})`, { error: error.message, action });
+            const isBusy = error.message?.includes("503") || error.message?.includes("busy") || error.message?.includes("overloaded") || error.message?.includes("429");
 
             if (isBusy && attempt < 3) {
-                await new Promise(r => setTimeout(r, 1000 * attempt));
+                await new Promise(r => setTimeout(r, 2000 * attempt));
                 return executeWithRetry(currentModel, attempt + 1);
             }
-
-            const FALLBACK_MODELS: Record<string, string> = {
-                "gemini-3-pro-preview": "gemini-3-flash-preview",
-                "gemini-3-flash-preview": "gemini-2.0-flash",
-            };
-
-            if (FALLBACK_MODELS[currentModel]) {
-                return executeWithRetry(FALLBACK_MODELS[currentModel], 1);
-            }
+            // No complicated fallbacks for now, as most models are quota-limited. 
+            // Better to fail fast if the main stable model is exhausted.
             throw error;
         }
     };
 
     try {
         const finalResult = await executeWithRetry(modelName);
+        sendLog("INFO", `API成功: ${action}`, { model: modelName });
         return res.status(200).json({ result: finalResult });
     } catch (error: any) {
+        sendLog("ERROR", `API最終エラー: ${action}`, { model: modelName, error: error.message });
         return res.status(500).json({
             error: "Vercel移転後のAPIエラーです。",
             details: error.message
