@@ -9,19 +9,20 @@ export function sendLog(
   message: string,
   details?: unknown
 ) {
-  fetch(GAS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      auth_token: AUTH_TOKEN,
-      app_name: APP_NAME,
-      level,
-      message,
-      details,
-    }),
-  }).catch((e) => {
-    console.warn("[DriveLogger] Failed to send log:", e);
-  });
+  // fetch(GAS_URL, {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json" },
+  //   body: JSON.stringify({
+  //     auth_token: AUTH_TOKEN,
+  //     app_name: APP_NAME,
+  //     level,
+  //     message,
+  //     details,
+  //   }),
+  // }).catch((e) => {
+  //   console.warn("[DriveLogger] Failed to send log:", e);
+  // });
+  console.log(`[DriveLogger Skipped] ${level}: ${message}`, details);
 }
 
 /**
