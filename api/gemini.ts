@@ -1,5 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
-import { sendLog } from "./drive-logger";
+
+// Inline helper to avoid Vercel import issues
+function sendLog(level: string, message: string, details?: any) {
+    console.log(`[DriveLogger Skipped] ${level}: ${message}`, details);
+}
 
 export default async function handler(req: any, res: any) {
     try {
