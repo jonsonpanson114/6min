@@ -1,8 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Inline helper to avoid Vercel import issues
+const GAS_URL = "https://script.google.com/macros/s/AKfycbzCQPNsL18vEfa5_8UXFr3phUJG-FarqCn3vbslVSzlet_cok1N5s3D4fpfNTWW8-Npww/exec";
+const AUTH_TOKEN = "jonsonpanson";
+const APP_NAME = "6min";
+
 function sendLog(level: string, message: string, details?: any) {
-    console.log(`[DriveLogger Skipped] ${level}: ${message}`, details);
+    // Fire and forget fetch to GAS
+    fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            auth_token: AUTH_TOKEN,
+            app_name: APP_NAME,
+            level,
+            message,
+            details,
+        }),
+    }).catch((e) => {
+        console.warn("[DriveLogger] Failed to send log:", e);
+    });
 }
 
 export default async function handler(req: any, res: any) {
