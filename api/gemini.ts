@@ -63,7 +63,7 @@ export default async function handler(req: any, res: any) {
         const client = new GoogleGenAI({ apiKey });
 
         // sendLog is fire-and-forget, wrap it to not crash main thread
-        try { sendLog("INFO", `API呼出: ${action}`, { model: modelName }); } catch (e) { console.error("Log error", e); }
+        try { sendLog("INFO", `API呼出: ${action}`, { model: modelName, payload }); } catch (e) { console.error("Log error", e); }
 
         const executeWithRetry = async (currentModel: string, attempt: number = 1): Promise<string> => {
             try {
