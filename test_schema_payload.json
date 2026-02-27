@@ -1,42 +1,46 @@
-
-const testPrompt = {
-  action: "generateContent",
-  payload: {
-    model: "gemini-3-flash-preview",
-    prompt: "Test feedback generation with mission.",
-    systemInstruction: "お前は陣内だ。不器用な優しさで全肯定しろ。最後には明日やるべき些細なミッションを一言で出せ。",
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "object",
-        properties: {
-          morningComment: { type: "string"
-                    },
-          eveningComment: { type: "string"
-                    },
-          dailySummary: { type: "string"
-                    },
-          reflectionOnFollowUp: { type: "string"
-                    },
-          oneMinuteAction: { type: "string"
-                    },
-          dailyTitle: { type: "string"
-                    },
-          nextMission: { type: "string"
-                    },
-                },
-        required: [
-                    "morningComment",
-                    "eveningComment",
-                    "dailySummary",
-                    "reflectionOnFollowUp",
-                    "oneMinuteAction",
-                    "dailyTitle",
-                    "nextMission"
-                ],
-            }
-        }
+{
+  "action": "generateContent",
+  "payload": {
+    "model": "gemini-3-flash-preview",
+    "prompt": "Test feedback generation with mission.",
+    "systemInstruction": "お前は陣内だ。不器用な優しさで全肯定しろ。最後には明日やるべき些細なミッションを一言で出せ。",
+    "generationConfig": {
+      "responseMimeType": "application/json",
+      "responseSchema": {
+        "type": "object",
+        "properties": {
+          "morningComment": {
+            "type": "string"
+          },
+          "eveningComment": {
+            "type": "string"
+          },
+          "dailySummary": {
+            "type": "string"
+          },
+          "reflectionOnFollowUp": {
+            "type": "string"
+          },
+          "oneMinuteAction": {
+            "type": "string"
+          },
+          "dailyTitle": {
+            "type": "string"
+          },
+          "nextMission": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "morningComment",
+          "eveningComment",
+          "dailySummary",
+          "reflectionOnFollowUp",
+          "oneMinuteAction",
+          "dailyTitle",
+          "nextMission"
+        ]
+      }
     }
-};
-
-console.log(JSON.stringify(testPrompt));
+  }
+}
