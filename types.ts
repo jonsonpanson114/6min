@@ -52,3 +52,64 @@ export type Personality = 'philosopher' | 'jinnai';
 export interface UserSettings {
   personality: Personality;
 }
+
+// A. 昨日の私からのメッセージ
+export interface PastSelfLetter {
+  pastDate: string;           // 過去の日付
+  presentDate: string;        // 表示した日付
+  letter: string;             // 手紙の内容
+  pastTitle: string;          // 過去の日のタイトル
+  isRead: boolean;
+}
+
+// B. デイリー・クエスト
+export type QuestType = 'reflection' | 'activity' | 'creative' | 'connection';
+
+export interface DailyQuest {
+  date: string;
+  type: QuestType;
+  question: string;           // 今日の質問
+  hint?: string;             // ヒント
+  isCompleted: boolean;
+  xpReward: number;          // 回答時のXP
+}
+
+// C. 週間レポート
+export interface WeeklyReport {
+  startDate: string;
+  endDate: string;
+  insights: string;          // AI分析
+  patterns: string[];        // パターン発見
+  mood: 'great' | 'good' | 'neutral' | 'challenging';
+}
+
+// D. ミッション結果
+export interface MissionResult {
+  date: string;
+  mission: string;           // その日のミッション
+  result: 'not_attempted' | 'completed' | 'partial' | 'skipped';
+  details?: string;          // ユーザーの詳細報告
+  aiResponse?: string;       // AIからの反応
+}
+
+// E. AI関係進化
+export type RelationshipLevel = 'stranger' | 'acquaintance' | 'friend' | 'confidant' | 'kindred';
+
+export interface Relationship {
+  level: RelationshipLevel;
+  daysKnown: number;         // 利用日数
+  totalInteractions: number;  // 総インタラクション数
+  intimacyScore: number;      // 親密さスコア
+}
+
+// UserStatsを拡張
+export interface UserStats {
+  xp: number;
+  streak: number;
+  totalEntries: number;
+  lastEntryDate?: string;
+  // 新規追加
+  relationship?: Relationship;      // E用
+  weeklyReportDate?: string;       // C用（最後に生成したレポートの日）
+  questCompletedCount?: number;    // B用（週のクエスト完了数）
+}

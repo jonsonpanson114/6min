@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings } from './types';
-import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, generateVoiceAudio } from './services/geminiService';
+import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings, PastSelfLetter, DailyQuest, WeeklyReport, MissionResult, Relationship, RelationshipLevel, QuestType } from './types';
+import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, generateVoiceAudio, generatePastSelfLetter, generateDailyQuest as generateDailyQuestAI, generateWeeklyReport, generateMissionResponse, calculateRelationship } from './services/geminiService';
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import {
@@ -9,11 +9,11 @@ import {
   Coffee, Zap, MessageCircle, Loader2, ChevronRight,
   Trophy, TrendingUp, Sparkles, Flame, Image as ImageIcon,
   Wind, Cloud, X, Calendar, PenTool, BookOpen, Settings,
-  Music, Mic, Globe
+  Music, Mic, Globe, Clock, Target, Mail
 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'morning' | 'evening' | 'history' | 'interrogation'>('morning');
+  const [activeTab, setActiveTab] = useState<'morning' | 'evening' | 'history' | 'interrogation' | 'quest'>('morning');
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
   const [stats, setStats] = useState<UserStats>({ xp: 0, streak: 0, totalEntries: 0 });
   const [loading, setLoading] = useState(false);
@@ -27,11 +27,23 @@ const App: React.FC = () => {
   const [parallelStory, setParallelStory] = useState<{ story: string; divergencePoint: string; worldDescription: string } | null>(null);
   const [isParallelLoading, setIsParallelLoading] = useState(false);
 
+  // 新規追加: 5つのエンゲージメント機能のState
+  const [pastSelfLetter, setPastSelfLetter] = useState<PastSelfLetter | null>(null);
+  const [dailyQuest, setDailyQuest] = useState<DailyQuest | null>(null);
+  const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
+  const [missionResultModal, setMissionResultModal] = useState<{date: string, mission: string} | null>(null);
+  const [missionResponse, setMissionResponse] = useState<{text: string, completed: boolean} | null>(null);
+
   useEffect(() => {
     try {
       const savedLogs = localStorage.getItem('ai_diary_logs');
       const savedStats = localStorage.getItem('ai_diary_stats');
       const savedSettings = localStorage.getItem('ai_diary_settings');
+      // 新規追加: 5つのエンゲージメント機能のlocalStorage
+      const savedPastSelfLetter = localStorage.getItem('ai_diary_past_self_letter');
+      const savedDailyQuest = localStorage.getItem('ai_diary_daily_quest');
+      const savedWeeklyReport = localStorage.getItem('ai_diary_weekly_report');
+
       if (savedLogs) {
         const parsedLogs = JSON.parse(savedLogs);
         if (parsedLogs && typeof parsedLogs === 'object') setLogs(parsedLogs);
@@ -44,10 +56,23 @@ const App: React.FC = () => {
         const parsedSettings = JSON.parse(savedSettings);
         if (parsedSettings) setSettings(parsedSettings);
       }
+      // 新規追加のロード
+      if (savedPastSelfLetter) {
+        const parsed = JSON.parse(savedPastSelfLetter);
+        if (parsed && !parsed.isRead) setPastSelfLetter(parsed);
+      }
+      if (savedDailyQuest) {
+        const parsed = JSON.parse(savedDailyQuest);
+        if (parsed && parsed.date === todayStr) setDailyQuest(parsed);
+      }
+      if (savedWeeklyReport) {
+        const parsed = JSON.parse(savedWeeklyReport);
+        if (parsed) setWeeklyReport(parsed);
+      }
     } catch (e) {
       console.error("Failed to load data", e);
     }
-  }, []);
+  }, [todayStr]);
 
   const currentLevel = useMemo(() => {
     return [...GROWTH_LEVELS].reverse().find(l => stats.xp >= l.minXp) || GROWTH_LEVELS[0];
@@ -129,6 +154,171 @@ const App: React.FC = () => {
   const updateSettings = (newSettings: UserSettings) => {
     setSettings(newSettings);
     localStorage.setItem('ai_diary_settings', JSON.stringify(newSettings));
+  };
+
+  // ============================================
+  // 新規追加: ヘルパー関数とトリガー関数
+  // ============================================
+
+  // 日付計算ヘルパー
+  const getDaysDiff = (dateStr1: string, dateStr2: string): number => {
+    const d1 = new Date(dateStr1);
+    const d2 = new Date(dateStr2);
+    const diffTime = d2.getTime() - d1.getTime();
+    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const isOneWeekPassed = (dateStr: string | undefined): boolean => {
+    if (!dateStr) return true;
+    return getDaysDiff(dateStr, todayStr) >= 7;
+  };
+
+  // 関係進化ヘルパー
+  const getRelationshipIcon = (level: RelationshipLevel): string => {
+    const icons = { stranger: '👤', acquaintance: '👋', friend: '🤝', confidant: '💫', kindred: '🌟' };
+    return icons[level] || '👤';
+  };
+
+  const getRelationshipLabel = (level: RelationshipLevel): string => {
+    const labels = { stranger: '知らない人', acquaintance: '顔なじみ', friend: '友人', confidant: '親友', kindred: '魂の共鳴' };
+    return labels[level] || '知らない人';
+  };
+
+  // A. 昨日の私からのメッセージチェック
+  useEffect(() => {
+    const checkPastSelfLetter = async () => {
+      const dates = Object.keys(logs).filter(d => d < todayStr);
+      if (dates.length === 0) return;
+
+      // 直近7日前の日記を探す
+      const targetDate = dates.find(d => getDaysDiff(d, todayStr) >= 7);
+      if (!targetDate) return;
+
+      // 既に表示済みならスキップ
+      const shownDates = JSON.parse(localStorage.getItem('ai_diary_past_self_shown') || '{}');
+      if (shownDates[targetDate]) return;
+
+      // 手紙を生成
+      try {
+        const pastLog = logs[targetDate];
+        if (pastLog?.aiFeedback) {
+          const result = await generatePastSelfLetter(pastLog, getDaysDiff(targetDate, todayStr), settings.personality);
+          const letter: PastSelfLetter = {
+            pastDate: targetDate,
+            presentDate: todayStr,
+            letter: result.letter,
+            pastTitle: pastLog.aiFeedback?.dailyTitle || '無題',
+            isRead: false
+          };
+          setPastSelfLetter(letter);
+          localStorage.setItem('ai_diary_past_self_letter', JSON.stringify(letter));
+        }
+      } catch (e) {
+        console.error("Failed to generate past self letter", e);
+      }
+    };
+
+    checkPastSelfLetter();
+  }, [logs, todayStr, settings.personality]);
+
+  // B. デイリー・クエスト生成（朝のタブがアクティブな時）
+  useEffect(() => {
+    if (activeTab !== 'morning') return;
+
+    const generateQuest = async () => {
+      // 今日のクエストが既にあるか確認
+      const saved = localStorage.getItem('ai_diary_daily_quest');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.date === todayStr) {
+          setDailyQuest(parsed);
+          return;
+        }
+      }
+
+      // 新規クエストを生成
+      try {
+        const d = new Date();
+        const questData = await generateDailyQuestAI(settings.personality, todayStr, d.getDay());
+        const quest: DailyQuest = {
+          ...questData,
+          type: questData.type as QuestType,
+          date: todayStr,
+          isCompleted: false,
+          xpReward: 30
+        };
+        setDailyQuest(quest);
+        localStorage.setItem('ai_diary_daily_quest', JSON.stringify(quest));
+      } catch (e) {
+        console.error("Failed to generate daily quest", e);
+      }
+    };
+
+    generateQuest();
+  }, [activeTab, todayStr, settings.personality]);
+
+  // C. 週間レポートチェック
+  useEffect(() => {
+    if (!isOneWeekPassed(stats.weeklyReportDate)) return;
+
+    const generateReport = async () => {
+      // 過去7日間のログを取得
+      const sortedDates = Object.keys(logs).sort().reverse();
+      const recentLogs = sortedDates.slice(0, 7).map(d => logs[d]).filter(Boolean);
+
+      if (recentLogs.length < 3) return; // データ不足
+
+      try {
+        const report = await generateWeeklyReport(recentLogs, settings.personality);
+        setWeeklyReport(report);
+
+        // ステータスを更新
+        const newStats = { ...stats, weeklyReportDate: todayStr };
+        setStats(newStats);
+        localStorage.setItem('ai_diary_stats', JSON.stringify(newStats));
+        localStorage.setItem('ai_diary_weekly_report', JSON.stringify(report));
+      } catch (e) {
+        console.error("Failed to generate weekly report", e);
+      }
+    };
+
+    generateReport();
+  }, [logs, todayStr, stats.weeklyReportDate, settings.personality]);
+
+  // E. 関係進化計算
+  useEffect(() => {
+    const daysUsed = Object.keys(logs).length;
+    const totalInteractions = stats.totalEntries * 3; // 見積もり
+    const relationship = calculateRelationship(daysUsed, stats.totalEntries, totalInteractions);
+    setStats(prev => ({ ...prev, relationship }));
+  }, [logs, stats.totalEntries]);
+
+  // デイリー・クエスト完了
+  const completeQuest = () => {
+    if (!dailyQuest || dailyQuest.isCompleted) return;
+    const completedQuest = { ...dailyQuest, isCompleted: true };
+    setDailyQuest(completedQuest);
+    localStorage.setItem('ai_diary_daily_quest', JSON.stringify(completedQuest));
+    updateData(logs, dailyQuest.xpReward);
+  };
+
+  // D. ミッション結果報告
+  const submitMissionResult = async (result: string, completed: boolean) => {
+    if (!missionResultModal) return;
+
+    try {
+      const response = await generateMissionResponse(missionResultModal.mission, result, completed, settings.personality);
+      setMissionResponse({ text: response, completed });
+      setMissionResultModal(null);
+
+      // 経験値を追加
+      if (completed) {
+        updateData(logs, 50);
+      }
+    } catch (e) {
+      console.error("Failed to generate mission response", e);
+      alert("エラーが発生しました。");
+    }
   };
 
   const currentLog: DailyLog = logs[todayStr] || { date: todayStr, updatedAt: Date.now() };
@@ -218,6 +408,15 @@ const App: React.FC = () => {
                   {settings.personality === 'jinnai' ? 'JINNAI' : 'NORMAL'}
                 </span>
               </button>
+              {/* E. AI関係進化表示 */}
+              {stats.relationship && (
+                <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
+                  <span className="text-lg">{getRelationshipIcon(stats.relationship.level)}</span>
+                  <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
+                    {getRelationshipLabel(stats.relationship.level)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 bg-white/50 px-3 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
                 <Flame className="text-orange-500 animate-pulse" size={16} fill="currentColor" />
                 <span className="text-xs font-black text-slate-700">{stats.streak} <span className="text-[10px] text-slate-500 font-bold uppercase">日連続</span></span>
@@ -249,6 +448,27 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 relative z-10 pb-32">
+        {/* B. デイリー・クエスト表示（Morningタブの上部） */}
+        {dailyQuest && !dailyQuest.isCompleted && activeTab === 'morning' && (
+          <div className="glass-panel p-6 rounded-[2rem] border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 mb-8 animate-in slide-in-from-top-4 duration-700">
+            <div className="flex items-center gap-2 mb-3">
+              <Target className="text-amber-500" size={20} />
+              <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Today's Quest</span>
+              <span className="text-[10px] text-amber-400 font-medium ml-auto">+{dailyQuest.xpReward} XP</span>
+            </div>
+            <p className="font-bold text-lg text-slate-800 mb-3 leading-relaxed">{dailyQuest.question}</p>
+            {dailyQuest.hint && (
+              <p className="text-sm text-slate-500 mb-5 italic">{dailyQuest.hint}</p>
+            )}
+            <button
+              onClick={completeQuest}
+              className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-[1.5rem] font-bold text-base shadow-lg shadow-amber-200/50 hover:shadow-amber-300/70 hover:-translate-y-0.5 active:scale-95 transition-all"
+            >
+              クエストを完了する
+            </button>
+          </div>
+        )}
+
         {activeTab === 'morning' && (
           <MorningForm
             entry={currentLog.morning}
@@ -389,6 +609,85 @@ const App: React.FC = () => {
         )}
       </main>
 
+      {/* A. 昨日の私からのメッセージModal */}
+      {pastSelfLetter && !pastSelfLetter.isRead && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-rose-900/30 backdrop-blur-sm" />
+          <div className="bg-[#fdf6f0] w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[3rem] shadow-2xl relative animate-in zoom-in-95 duration-500 p-8 border border-rose-200">
+            <div className="text-center mb-6">
+              <span className="text-6xl">💌</span>
+              <p className="text-xs text-rose-400 font-black uppercase tracking-widest mt-3">From Your Past Self</p>
+              <p className="text-sm text-rose-500 font-medium mt-1">{pastSelfLetter.pastDate.replace(/-/g, '/')}のあなたから</p>
+            </div>
+            <div className="bg-white/60 p-6 rounded-2xl mb-6 border border-rose-100">
+              <p className="text-slate-700 leading-relaxed text-sm font-serif italic whitespace-pre-wrap">
+                {pastSelfLetter.letter}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setPastSelfLetter({ ...pastSelfLetter, isRead: true });
+                localStorage.setItem('ai_diary_past_self_letter', JSON.stringify({ ...pastSelfLetter, isRead: true }));
+                localStorage.setItem('ai_diary_past_self_shown', JSON.stringify({ ...JSON.parse(localStorage.getItem('ai_diary_past_self_shown') || '{}'), [pastSelfLetter.pastDate]: true }));
+              }}
+              className="w-full py-4 bg-gradient-to-r from-rose-400 to-pink-500 text-white rounded-[2rem] font-bold text-base shadow-lg shadow-rose-200/50 hover:shadow-rose-300/70 hover:-translate-y-0.5 active:scale-95 transition-all"
+            >
+              受け取る
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* D. ミッション結果報告Modal */}
+      {missionResultModal && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMissionResultModal(null)} />
+          <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl relative animate-in zoom-in-95 duration-500 p-8">
+            <button onClick={() => setMissionResultModal(null)} className="absolute top-4 right-4 p-2 bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+              <X size={20} />
+            </button>
+
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                  <Target className="text-indigo-500" size={32} />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 mb-2">ミッション結果を報告</h3>
+                <p className="text-slate-500 text-sm">「{missionResultModal.mission}」</p>
+              </div>
+
+              {missionResponse ? (
+                <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100">
+                  <p className="text-slate-700 text-sm font-medium italic">{missionResponse.text}</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <textarea
+                    placeholder="どのようにこなしましたか？"
+                    className="w-full p-4 rounded-2xl glass-input outline-none text-slate-700 placeholder:text-slate-300 resize-none h-32"
+                    onChange={(e) => setMissionResponse({ text: e.target.value, completed: false })}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => submitMissionResult(missionResponse?.text || '', true)}
+                      className="flex-1 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-sm"
+                    >
+                      達成しました！
+                    </button>
+                    <button
+                      onClick={() => submitMissionResult('達成できませんでした', false)}
+                      className="px-4 py-3 bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
+                    >
+                      できませんでした
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Parallel World Modal */}
       {parallelStory && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -426,6 +725,53 @@ const App: React.FC = () => {
 
       {/* Detail Modal */}
       {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
+
+      {/* C. 週間レポートModal */}
+      {weeklyReport && (
+        <div className="fixed inset-0 z-[68] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-indigo-950/60 backdrop-blur-md" onClick={() => setWeeklyReport(null)} />
+          <div className="bg-white w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[3rem] shadow-2xl relative animate-in zoom-in-95 duration-500 p-8 border border-indigo-100">
+            <button onClick={() => setWeeklyReport(null)} className="absolute top-5 right-5 p-3 bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
+              <X size={20} />
+            </button>
+
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="text-indigo-500" size={36} />
+                </div>
+                <h3 className="text-2xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
+                <p className="text-slate-400 text-sm">{weeklyReport.startDate.replace(/-/g, '/')} 〜 {weeklyReport.endDate.replace(/-/g, '/')}</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
+                <p className="text-slate-700 leading-relaxed text-sm font-medium">{weeklyReport.insights}</p>
+              </div>
+
+              {weeklyReport.patterns.length > 0 && (
+                <div>
+                  <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Your Patterns</p>
+                  <div className="space-y-3">
+                    {weeklyReport.patterns.map((p, i) => (
+                      <div key={i} className="flex items-center gap-3 text-slate-600 bg-white/60 p-4 rounded-xl border border-slate-100">
+                        <div className="w-2 h-2 bg-indigo-400 rounded-full shrink-0" />
+                        <span className="text-sm">{p}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-center gap-3 py-4 bg-slate-50 rounded-2xl">
+                <span className="text-4xl">
+                  {weeklyReport.mood === 'great' ? '🌟' : weeklyReport.mood === 'good' ? '😊' : weeklyReport.mood === 'neutral' ? '😐' : '💪'}
+                </span>
+                <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">This Week's Mood</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 glass-nav px-6 pb-6 pt-4 flex justify-around items-end md:static md:bg-transparent md:border-none md:max-w-xl md:mx-auto md:pb-12 md:pt-0 z-50">

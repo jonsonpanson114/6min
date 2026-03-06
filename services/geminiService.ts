@@ -1,5 +1,5 @@
 // import { SchemaType } from "@google/generative-ai";
-import { DailyLog, Personality, EveningEntry } from "../types";
+import { DailyLog, Personality, EveningEntry, Relationship, RelationshipLevel } from "../types";
 
 const callNetlifyFunction = async (action: string, payload: any) => {
   const response = await fetch("/api/gemini", {
@@ -241,4 +241,212 @@ export const generateVoiceAudio = async (text: string, personality: Personality)
     text,
     personality
   });
+};
+
+// ============================================
+// 新規追加: 5つのエンゲージメント機能
+// ============================================
+
+// A. 昨日の私からのメッセージ生成
+const pastSelfLetterSchema = {
+  description: "Letter from past self to present self",
+  type: "object",
+  properties: {
+    letter: { type: "string", description: "The letter message from past self" },
+  },
+  required: ["letter"],
+};
+
+export const generatePastSelfLetter = async (
+  pastLog: DailyLog,
+  daysAgo: number,
+  personality: Personality
+): Promise<{ letter: string }> => {
+  const prompt = `あなたは${daysAgo}日前のユーザー自身です。
+
+【${daysAgo}日前の日記】
+- タイトル: ${pastLog.aiFeedback?.dailyTitle || '無題'}
+- 要約: ${pastLog.aiFeedback?.dailySummary || ''}
+- 感謝: ${pastLog.morning?.gratitude.join(', ') || ''}
+- 目標: ${pastLog.morning?.todayGoal || ''}
+
+この過去の自分が、今の現在の自分に宛てて手紙を書いてください。
+「あの時、私はこう思っていた」「こうなってくれたら嬉しい」というような、
+過去の自分の視点からの温かいメッセージにしてください。
+${personality === 'jinnai' ? '口調は陣内のタメ口で。でも、不器用ながらもお前を気遣う感じで。' : '口調は哲学的で詩的に。温かみのある言葉で。'}`;
+
+  const result = await callNetlifyFunction("generateContent", {
+    model: "gemini-3-flash-preview",
+    prompt,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: pastSelfLetterSchema,
+      temperature: 0.9,
+    },
+  });
+  return JSON.parse(result);
+};
+
+// B. デイリー・クエスト生成
+const dailyQuestSchema = {
+  description: "Daily quest for engagement",
+  type: "object",
+  properties: {
+    type: { type: "string", description: "Type of quest: reflection, activity, creative, or connection" },
+    question: { type: "string", description: "The question or challenge for today" },
+    hint: { type: "string", description: "Optional hint or context" },
+  },
+  required: ["type", "question"],
+};
+
+export const generateDailyQuest = async (
+  personality: Personality,
+  today: string,
+  weekDay: number
+): Promise<{ type: string; question: string; hint?: string }> => {
+  const types = ['reflection', 'activity', 'creative', 'connection'];
+  const randomType = types[Math.floor(Math.random() * types.length)];
+
+  const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+  const weekDayNames: Record<number, string> = {
+    0: 'reflection',  // 日曜: 振り返り
+    1: 'activity',    // 月曜: 行動
+    2: 'creative',    // 火曜: 創造
+    3: 'reflection',  // 水曜: 振り返り
+    4: 'activity',    // 木曜: 行動
+    5: 'connection',  // 金曜: つながり
+    6: 'creative',    // 土曜: 創造
+  };
+
+  const selectedType = weekDayNames[weekDay] || randomType;
+
+  const typeDescriptions = {
+    reflection: '自分を振り返る質問',
+    activity: '5分でできる小さな行動',
+    creative: '創造的なアイデア出し',
+    connection: '誰かとのつながりを意識するもの',
+  };
+
+  const prompt = `今日は${today}（${weekDays[weekDay]}曜日）です。
+ユーザーに1日の「デイリー・クエスト」を出してください。
+
+タイプ: ${typeDescriptions[selectedType] || typeDescriptions[randomType]}
+
+質問は具体的で、答えるのが楽しいものにしてください。
+短すぎず、長すぎず、読んで「へぇ、やってみようかな」と思えるものに。
+${personality === 'jinnai' ? '陣内らしく、少し挑発的で面白い質問に。でも意地悪じゃなくて、お前をからかいながらも背中を押す感じ。' : '哲学的で心に響く質問に。一日の始まりとしてふさわしいものに。'}`;
+
+  const result = await callNetlifyFunction("generateContent", {
+    model: "gemini-3-flash-preview",
+    prompt,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: dailyQuestSchema,
+      temperature: 1.2,
+    },
+  });
+  return JSON.parse(result);
+};
+
+// C. 週間傾向レポート生成
+const weeklyReportSchema = {
+  description: "Weekly insight report",
+  type: "object",
+  properties: {
+    insights: { type: "string", description: "Insights about user's growth over the week" },
+    patterns: { type: "array", items: { type: "string" }, description: "Patterns discovered in the user's entries" },
+    mood: { type: "string", description: "Overall mood: great, good, neutral, or challenging" },
+  },
+  required: ["insights", "patterns", "mood"],
+};
+
+export const generateWeeklyReport = async (
+  weeklyLogs: DailyLog[],
+  personality: Personality
+): Promise<{ insights: string; patterns: string[]; mood: string }> => {
+  if (weeklyLogs.length === 0) {
+    return {
+      insights: "まだ記録がありません。まずは1日を記録してみましょう。",
+      patterns: [],
+      mood: "neutral"
+    };
+  }
+
+  const logsText = weeklyLogs.map(log => `
+  ${log.date}:
+  - タイトル: ${log.aiFeedback?.dailyTitle || '無題'}
+  - 朝の目標: ${log.morning?.todayGoal || ''}
+  - 良かったこと: ${log.evening?.goodThings.join(', ') || ''}
+  - 気づき: ${log.evening?.insights || ''}
+  `).join('\n');
+
+  const prompt = `過去7日間の日記を分析して、週間レポートを作成してください。
+
+【日記データ】
+${logsText}
+
+【出力形式】
+1. insights: 1週間を通したユーザーの変化や成長についての洞察（3-4文）
+2. patterns: ユーザーが重視していることや、よく出てくるテーマ（3-5個の配列）
+3. mood: 全体的なムード（great/good/neutral/challenging）
+
+${personality === 'jinnai' ? '陣内らしく、「お前、ここ最近こういう傾向あるじゃねえか」と気づかせてあげる。たまに「悪くねえぞ」も入れる。' : '哲学的で深い洞察で。ユーザーの成長を肯定的に捉える。'}`;
+
+  const result = await callNetlifyFunction("generateContent", {
+    model: "gemini-3-flash-preview",
+    prompt,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: weeklyReportSchema,
+      temperature: 0.8,
+    },
+  });
+  return JSON.parse(result);
+};
+
+// D. ミッション結果へのAI反応
+export const generateMissionResponse = async (
+  mission: string,
+  result: string,
+  completed: boolean,
+  personality: Personality
+): Promise<string> => {
+  const prompt = `昨日のミッション: 「${mission}」
+ユーザーの結果: ${result}
+
+${completed
+    ? 'ユーザーはミッションを達成しました。陣内として（または哲学的ガイドとして）、その結果に対する反応を返してください。'
+    : 'ユーザーはミッションを達成できませんでした。でもそれでもOK。励ましの言葉を返してください。'}
+
+${personality === 'jinnai'
+    ? '陣内らしく、達成したなら「やるじゃねえか、お前」と肯定しつつも、少し照れ隠しで。達成できていなかったら「ま、無理すんなよ」と気楽に励ます。'
+    : '哲学的で温かい言葉で。'}
+
+返答は1〜2文で、短く。`;
+
+  return await callNetlifyFunction("generateContent", {
+    model: "gemini-3-flash-preview",
+    prompt,
+    generationConfig: {
+      temperature: 1.0,
+    },
+  });
+};
+
+// E. 関係進化計算（ローカル関数）
+export const calculateRelationship = (
+  daysUsed: number,
+  totalEntries: number,
+  totalInteractions: number
+): Relationship => {
+  const intimacyScore = daysUsed * 2 + totalEntries * 10 + totalInteractions * 1;
+
+  let level: RelationshipLevel;
+  if (intimacyScore < 50) level = 'stranger';
+  else if (intimacyScore < 150) level = 'acquaintance';
+  else if (intimacyScore < 300) level = 'friend';
+  else if (intimacyScore < 500) level = 'confidant';
+  else level = 'kindred';
+
+  return { level, daysKnown: daysUsed, totalInteractions, intimacyScore };
 };
