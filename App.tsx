@@ -45,29 +45,51 @@ const App: React.FC = () => {
       const savedWeeklyReport = localStorage.getItem('ai_diary_weekly_report');
 
       if (savedLogs) {
-        const parsedLogs = JSON.parse(savedLogs);
-        if (parsedLogs && typeof parsedLogs === 'object') setLogs(parsedLogs);
+        try {
+          const parsedLogs = JSON.parse(savedLogs);
+          if (parsedLogs && typeof parsedLogs === 'object') setLogs(parsedLogs);
+        } catch(e) { console.error("Logs parse error", e); }
       }
       if (savedStats) {
-        const parsedStats = JSON.parse(savedStats);
-        if (parsedStats) setStats(parsedStats);
+        try {
+          const parsedStats = JSON.parse(savedStats);
+          if (parsedStats && typeof parsedStats === 'object') {
+            setStats({
+              xp: parsedStats.xp || 0,
+              streak: parsedStats.streak || 0,
+              totalEntries: parsedStats.totalEntries || 0,
+              lastEntryDate: parsedStats.lastEntryDate,
+              relationship: parsedStats.relationship,
+              weeklyReportDate: parsedStats.weeklyReportDate,
+              questCompletedCount: parsedStats.questCompletedCount
+            });
+          }
+        } catch(e) { console.error("Stats parse error", e); }
       }
       if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        if (parsedSettings) setSettings(parsedSettings);
+        try {
+          const parsedSettings = JSON.parse(savedSettings);
+          if (parsedSettings) setSettings(parsedSettings);
+        } catch(e) { console.error("Settings parse error", e); }
       }
       // 新規追加のロード
       if (savedPastSelfLetter) {
-        const parsed = JSON.parse(savedPastSelfLetter);
-        if (parsed && !parsed.isRead) setPastSelfLetter(parsed);
+        try {
+          const parsed = JSON.parse(savedPastSelfLetter);
+          if (parsed && !parsed.isRead) setPastSelfLetter(parsed);
+        } catch(e) { console.error("Letter parse error", e); }
       }
       if (savedDailyQuest) {
-        const parsed = JSON.parse(savedDailyQuest);
-        if (parsed && parsed.date === todayStr) setDailyQuest(parsed);
+        try {
+          const parsed = JSON.parse(savedDailyQuest);
+          if (parsed && parsed.date === todayStr) setDailyQuest(parsed);
+        } catch(e) { console.error("Quest parse error", e); }
       }
       if (savedWeeklyReport) {
-        const parsed = JSON.parse(savedWeeklyReport);
-        if (parsed) setWeeklyReport(parsed);
+        try {
+          const parsed = JSON.parse(savedWeeklyReport);
+          if (parsed) setWeeklyReport(parsed);
+        } catch(e) { console.error("Report parse error", e); }
       }
     } catch (e) {
       console.error("Failed to load data", e);
