@@ -285,12 +285,11 @@ const App: React.FC = () => {
     generateReport();
   }, [logs, todayStr, stats.weeklyReportDate, settings.personality]);
 
-  // E. 関係進化計算
-  useEffect(() => {
+  // E. 関係進化計算 (useMemo で常に最新の値を計算するように変更)
+  const relationship = useMemo(() => {
     const daysUsed = Object.keys(logs).length;
-    const totalInteractions = stats.totalEntries * 3; // 見積もり
-    const relationship = calculateRelationship(daysUsed, stats.totalEntries, totalInteractions);
-    setStats(prev => ({ ...prev, relationship }));
+    const totalInteractions = (stats.totalEntries || 0) * 3; // 見積もり
+    return calculateRelationship(daysUsed, stats.totalEntries || 0, totalInteractions);
   }, [logs, stats.totalEntries]);
 
   // デイリー・クエスト完了
@@ -409,14 +408,12 @@ const App: React.FC = () => {
                 </span>
               </button>
               {/* E. AI関係進化表示 */}
-              {stats.relationship && (
                 <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
-                  <span className="text-lg">{getRelationshipIcon(stats.relationship.level)}</span>
+                  <span className="text-lg">{getRelationshipIcon(relationship.level)}</span>
                   <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                    {getRelationshipLabel(stats.relationship.level)}
+                    {getRelationshipLabel(relationship.level)}
                   </span>
                 </div>
-              )}
               <div className="flex items-center gap-1.5 bg-white/50 px-3 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
                 <Flame className="text-orange-500 animate-pulse" size={16} fill="currentColor" />
                 <span className="text-xs font-black text-slate-700">{stats.streak} <span className="text-[10px] text-slate-500 font-bold uppercase">日連続</span></span>
