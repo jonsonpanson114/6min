@@ -110,7 +110,7 @@ export default async function handler(req: any, res: any) {
                 console.error(`[VERCEL-FAIL] ${currentModel} error:`, error.message);
                 try { sendLog(attempt < 3 ? "WARN" : "ERROR", `Gemini失敗: ${currentModel} (試行${attempt})`, { error: error.message, action }); } catch { }
 
-                const isBusy = error.message?.includes("503") || error.message?.includes("busy") || error.message?.includes("overloaded") || error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED");
+                const isBusy = error.message?.includes("503") || error.message?.includes("busy") || error.message?.includes("overloaded") || error.message?.includes("429") || error.message?.includes("RESOURCE_EXHAUSTED") || error.status === 503;
 
                 if (isBusy && attempt < 3) {
                     await new Promise(r => setTimeout(r, 2000 * attempt));

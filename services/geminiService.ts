@@ -12,11 +12,17 @@ const callNetlifyFunction = async (action: string, payload: any) => {
     let errorMessage = "Failed to call Netlify function";
     try {
       const errorData = await response.json();
-      errorMessage = errorData.error || errorMessage;
+      if (response.status === 503) {
+        errorMessage = "AIサービスが混雑しています。しばらく時間を置いてからお試しください。";
+      } else {
+        errorMessage = errorData.error || errorMessage;
+      }
     } catch {
       // If response is not JSON (e.g., Netlify timeout HTML page)
       if (response.status === 504 || response.status === 502) {
         errorMessage = "通信がタイムアウトしました。もう一度お試しください。";
+      } else if (response.status === 503) {
+        errorMessage = "AIサービスが混雑しています。しばらく時間を置いてからお試しください。";
       }
     }
     throw new Error(errorMessage);
