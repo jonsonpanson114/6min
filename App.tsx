@@ -6,14 +6,14 @@ import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
-  Coffee, Zap, MessageCircle, Loader2, ChevronRight,
+  Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
   Trophy, TrendingUp, Sparkles, Flame, Image as ImageIcon,
   Wind, Cloud, X, Calendar, PenTool, BookOpen, Settings,
   Music, Mic, Globe, Clock, Target, Mail
 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'morning' | 'evening' | 'history' | 'interrogation' | 'quest'>('morning');
+  const [activeTab, setActiveTab] = useState<'morning' | 'evening' | 'calendar' | 'interrogation' | 'quest'>('morning');
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
   const [stats, setStats] = useState<UserStats>({ xp: 0, streak: 0, totalEntries: 0 });
   const [loading, setLoading] = useState(false);
@@ -21,6 +21,7 @@ const App: React.FC = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
   const [settings, setSettings] = useState<UserSettings>({ personality: 'philosopher' });
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
@@ -342,7 +343,7 @@ const App: React.FC = () => {
     }
   };
 
-  const currentLog: DailyLog = logs[todayStr] || { date: todayStr, updatedAt: Date.now() };
+  const currentLog: DailyLog = logs[selectedDate] || { date: selectedDate, updatedAt: Date.now() };
 
   const triggerAIFeedback = async (log: DailyLog, withImage: boolean) => {
     setLoading(true);
@@ -363,7 +364,7 @@ const App: React.FC = () => {
 
       const newLogs = {
         ...logs,
-        [todayStr]: { ...log, aiFeedback: feedback, souvenirImageUrl: imageUrl, updatedAt: Date.now() }
+        [selectedDate]: { ...log, aiFeedback: feedback, souvenirImageUrl: imageUrl, updatedAt: Date.now() }
       };
 
       // Auto-play voice if it's jinnai personality and it's evening feedback
@@ -492,7 +493,7 @@ const App: React.FC = () => {
           <MorningForm
             entry={currentLog.morning}
             onSubmit={(e) => {
-              const newLogs = { ...logs, [todayStr]: { ...currentLog, morning: e, updatedAt: Date.now() } };
+              const newLogs = { ...logs, [selectedDate]: { ...currentLog, morning: e, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.morning ? 50 : 0);
               triggerAIFeedback(newLogs[todayStr], false);
             }}
@@ -504,7 +505,7 @@ const App: React.FC = () => {
           <EveningForm
             entry={currentLog.evening}
             onSubmit={(e) => {
-              const newLogs = { ...logs, [todayStr]: { ...currentLog, evening: e, updatedAt: Date.now() } };
+              const newLogs = { ...logs, [selectedDate]: { ...currentLog, evening: e, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.evening ? 50 : 0);
               triggerAIFeedback(newLogs[todayStr], false);
             }}
@@ -512,14 +513,14 @@ const App: React.FC = () => {
             isLoading={loading}
           />
         )}
-        {activeTab === 'history' && (
-          <HistoryView logs={logs} onSelectLog={setSelectedLog} />
+        {activeTab === 'calendar' && (
+          <CalendarView logs={logs} todayStr={todayStr} selectedDate={selectedDate} onSelectDate={setSelectedDate} onSelectLog={setSelectedLog} onNavigateToTab={setActiveTab} />
         )}
         {activeTab === 'interrogation' && (
           <InterrogationRoom
             personality={settings.personality}
             onComplete={(e) => {
-              const newLogs = { ...logs, [todayStr]: { ...currentLog, evening: e, updatedAt: Date.now() } };
+              const newLogs = { ...logs, [selectedDate]: { ...currentLog, evening: e, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.evening ? 50 : 0);
               triggerAIFeedback(newLogs[todayStr], false);
               setActiveTab('evening'); // Show the results in evening view
@@ -607,7 +608,7 @@ const App: React.FC = () => {
                         onChange={(e) => {
                           const newLogs = {
                             ...logs,
-                            [todayStr]: { ...currentLog, isMissionCompleted: e.target.checked, updatedAt: Date.now() }
+                            [selectedDate]: { ...currentLog, isMissionCompleted: e.target.checked, updatedAt: Date.now() }
                           };
                           updateData(newLogs, e.target.checked ? 150 : -150); // Mission bonus
                         }}
@@ -797,7 +798,7 @@ const App: React.FC = () => {
         <NavButton active={activeTab === 'morning'} onClick={() => setActiveTab('morning')} icon={<Sun size={24} />} label="MORNING" color="text-amber-500" />
         <NavButton active={activeTab === 'interrogation'} onClick={() => setActiveTab('interrogation')} icon={<Mic size={24} />} label="INTERROGATE" color="text-slate-500" />
         <NavButton active={activeTab === 'evening'} onClick={() => setActiveTab('evening')} icon={<Moon size={24} />} label="EVENING" color="text-indigo-500" />
-        <NavButton active={activeTab === 'history'} onClick={() => setActiveTab('history')} icon={<BookOpen size={24} />} label="LOG" color="text-rose-500" />
+        <NavButton active={activeTab === 'calendar'} onClick={() => setActiveTab('calendar')} icon={<Calendar size={24} />} label="LOG" color="text-rose-500" />
       </nav>
     </div>
   );
@@ -950,6 +951,23 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
       )}
     </div>
   );
+};
+
+// Calendar utility functions
+const getFirstDayOfMonth = (year: number, month: number): number => {
+  return new Date(year, month, 1).getDay();
+};
+
+const getDaysInMonth = (year: number, month: number): number => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+const formatDateKey = (year: number, month: number, day: number): string => {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+const isToday = (dateStr: string, todayStr: string): boolean => {
+  return dateStr === todayStr;
 };
 
 const HistoryView: React.FC<{ logs: Record<string, DailyLog>, onSelectLog: (log: DailyLog) => void }> = ({ logs, onSelectLog }) => {
@@ -1146,6 +1164,228 @@ const LogDetailModal: React.FC<{ log: DailyLog; onClose: () => void }> = ({ log,
               <p>魂の言葉を紡いでいます...</p>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Calendar components
+interface CalendarDayCellProps {
+  day: number;
+  dateStr: string;
+  log?: DailyLog;
+  isToday: boolean;
+  onClick: () => void;
+  isCurrentMonth: boolean;
+}
+
+const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
+  day,
+  dateStr,
+  log,
+  isToday,
+  onClick,
+  isCurrentMonth,
+}) => {
+  return (
+    <button
+      onClick={onClick}
+      disabled={!isCurrentMonth}
+      className={`
+        aspect-square rounded-xl md:rounded-2xl flex flex-col items-center justify-center relative cursor-pointer
+        transition-all duration-300 hover:scale-105 hover:shadow-lg
+        ${isToday
+          ? 'bg-gradient-to-br from-purple-100 to-indigo-100 ring-2 ring-purple-300'
+          : 'bg-white/40 hover:bg-white/80'
+        }
+        ${!isCurrentMonth ? 'opacity-40 pointer-events-none' : ''}
+      `}
+    >
+      <span className={`text-sm md:text-lg font-bold ${isToday ? 'text-purple-700' : 'text-slate-700'}`}>
+        {day}
+      </span>
+      <div className="flex gap-1 mt-1">
+        {log?.morning && (
+          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+        )}
+        {log?.evening && (
+          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
+        )}
+      </div>
+    </button>
+  );
+};
+
+interface CalendarViewProps {
+  logs: Record<string, DailyLog>;
+  todayStr: string;
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+  onSelectLog: (log: DailyLog) => void;
+  onNavigateToTab: (tab: 'morning' | 'evening') => void;
+}
+
+const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDate, onSelectDate, onSelectLog, onNavigateToTab }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const formatMonthYear = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = date.getMonth() + 1;
+    return `${year}年 ${month}月`;
+  };
+
+  const goToPreviousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const goToToday = () => {
+    setCurrentMonth(new Date());
+  };
+
+  const handleDateClick = (dateStr: string) => {
+    onSelectDate(dateStr);
+    const log = logs[dateStr];
+    if (log) {
+      onSelectLog(log);
+    } else {
+      // Navigate to appropriate form for new entry
+      const currentHour = new Date().getHours();
+      const targetTab = (dateStr === todayStr && currentHour >= 12)
+        ? 'evening'
+        : 'morning';
+      onNavigateToTab(targetTab);
+    }
+  };
+
+  const renderCalendar = () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const firstDay = getFirstDayOfMonth(year, month);
+    const daysInMonth = getDaysInMonth(year, month);
+    const prevMonthDays = getDaysInMonth(year, month - 1);
+
+    const cells: React.ReactNode[] = [];
+
+    // Weekday header
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    cells.push(
+      ...weekdays.map((day, idx) => (
+        <div key={`weekday-${idx}`} className="text-center py-2">
+          <span className={`text-xs font-bold uppercase tracking-wider ${
+            idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-slate-400'
+          }`}>
+            {day}
+          </span>
+        </div>
+      ))
+    );
+
+    // Empty cells for previous month
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const day = prevMonthDays - i;
+      const dateStr = formatDateKey(year, month - 1, day);
+      cells.push(
+        <CalendarDayCell
+          key={`prev-${day}`}
+          day={day}
+          dateStr={dateStr}
+          isToday={isToday(dateStr, todayStr)}
+          onClick={() => handleDateClick(dateStr)}
+          isCurrentMonth={false}
+        />
+      );
+    }
+
+    // Days of current month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = formatDateKey(year, month, day);
+      cells.push(
+        <CalendarDayCell
+          key={day}
+          day={day}
+          dateStr={dateStr}
+          log={logs[dateStr]}
+          isToday={isToday(dateStr, todayStr)}
+          onClick={() => handleDateClick(dateStr)}
+          isCurrentMonth={true}
+        />
+      );
+    }
+
+    // Empty cells for next month
+    const totalCells = firstDay + daysInMonth;
+    const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let day = 1; day <= remainingCells; day++) {
+      const dateStr = formatDateKey(year, month + 1, day);
+      cells.push(
+        <CalendarDayCell
+          key={`next-${day}`}
+          day={day}
+          dateStr={dateStr}
+          isToday={isToday(dateStr, todayStr)}
+          onClick={() => handleDateClick(dateStr)}
+          isCurrentMonth={false}
+        />
+      );
+    }
+
+    return cells;
+  };
+
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 px-2">
+        <Calendar size={24} className="text-rose-400" />
+        <span className="bg-gradient-to-r from-slate-700 to-slate-500 bg-clip-text text-transparent">カレンダー</span>
+      </h2>
+      <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
+        {/* Calendar header */}
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={goToPreviousMonth}
+            className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <div className="flex items-center gap-4">
+            <h3 className="text-xl md:text-2xl font-black text-slate-800">
+              {formatMonthYear(currentMonth)}
+            </h3>
+            <button
+              onClick={goToToday}
+              className="px-3 py-1 md:px-4 md:py-2 text-xs font-bold uppercase tracking-widest bg-purple-100 text-purple-600 rounded-full hover:bg-purple-200 transition-all"
+            >
+              今日
+            </button>
+          </div>
+          <button
+            onClick={goToNextMonth}
+            className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-1 md:gap-3">
+          {renderCalendar()}
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-6 text-sm text-slate-500">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+          <span className="font-bold">朝の記録</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
+          <span className="font-bold">夜の記録</span>
         </div>
       </div>
     </div>
