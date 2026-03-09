@@ -559,10 +559,10 @@ const App: React.FC = () => {
               <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-5 rounded-3xl text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-10"><Zap size={64} /></div>
                 <span className="text-[10px] font-black uppercase tracking-widest opacity-70 mb-2 block">1 Minute Seed</span>
-                <p className="font-bold text-lg leading-tight relative z-10">{currentLog.aiFeedback.oneMinuteAction}</p>
+                <p className="font-bold text-lg leading-tight relative z-10">{currentLog.aiFeedback?.oneMinuteAction}</p>
               </div>
 
-              {currentLog.aiFeedback.reflectionOnFollowUp && (
+              {currentLog.aiFeedback?.reflectionOnFollowUp && (
                 <div className="bg-white/60 p-5 rounded-3xl border border-rose-100 shadow-sm relative overflow-hidden">
                   <div className="absolute -bottom-2 -right-2 text-rose-100"><Heart size={64} /></div>
                   <span className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-2 block">Connection Magic</span>
@@ -572,7 +572,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Mission Section */}
-            {currentLog.aiFeedback.nextMission && (
+            {currentLog.aiFeedback?.nextMission && (
               <div className="mt-6 glass-panel p-6 rounded-3xl border-2 border-amber-200 bg-amber-50/30 animate-in zoom-in-95 duration-500">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -617,7 +617,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-slate-800 font-black text-lg leading-snug">
-                  「{currentLog.aiFeedback.nextMission}」
+                  「{currentLog.aiFeedback?.nextMission}」
                 </p>
                 <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
                   {currentLog.isMissionCompleted ? "✨ ミッション達成！ +150 XP" : "明日これをこなせば XP を弾んでやるぜ。"}
@@ -636,7 +636,7 @@ const App: React.FC = () => {
             <div className="text-center mb-6">
               <span className="text-6xl">💌</span>
               <p className="text-xs text-rose-400 font-black uppercase tracking-widest mt-3">From Your Past Self</p>
-              <p className="text-sm text-rose-500 font-medium mt-1">{pastSelfLetter.pastDate.replace(/-/g, '/')}のあなたから</p>
+              <p className="text-sm text-rose-500 font-medium mt-1">{pastSelfLetter.pastDate?.replace(/-/g, '/')}のあなたから</p>
             </div>
             <div className="bg-white/60 p-6 rounded-2xl mb-6 border border-rose-100">
               <p className="text-slate-700 leading-relaxed text-sm font-serif italic whitespace-pre-wrap">
@@ -760,7 +760,7 @@ const App: React.FC = () => {
                   <Calendar className="text-indigo-500" size={36} />
                 </div>
                 <h3 className="text-2xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
-                <p className="text-slate-400 text-sm">{weeklyReport.startDate.replace(/-/g, '/')} 〜 {weeklyReport.endDate.replace(/-/g, '/')}</p>
+                <p className="text-slate-400 text-sm">{weeklyReport.startDate?.replace(/-/g, '/')} 〜 {weeklyReport.endDate?.replace(/-/g, '/')}</p>
               </div>
 
               <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
@@ -812,7 +812,7 @@ const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.Re
       <div className={`${active ? color : 'text-slate-500'} transition-colors`}>{icon}</div>
     </div>
     <span className={`text-[10px] font-black tracking-widest uppercase ${active ? 'text-slate-800' : 'text-slate-400'}`}>{label}</span>
-    {active && <div className={`w-1 h-1 rounded-full ${color.replace('text', 'bg')} mt-1 animate-ping`} />}
+    {active && <div className={`w-1 h-1 rounded-full ${color?.replace('text', 'bg')} mt-1 animate-ping`} />}
   </button>
 );
 
@@ -1033,7 +1033,7 @@ const LogDetailModal: React.FC<{ log: DailyLog; onClose: () => void }> = ({ log,
             <div className="absolute inset-0 bg-gradient-to-t from-[#fdfbfb] via-transparent to-transparent opacity-90" />
             <div className="absolute bottom-8 left-8 right-8">
               <div className="inline-block px-4 py-1.5 bg-white/90 backdrop-blur rounded-full text-xs font-black text-slate-500 mb-3 shadow-sm border border-white">
-                {log.date.replace(/-/g, '/')}
+                {log.date?.replace(/-/g, '/')}
               </div>
               <h2 className="text-3xl md:text-4xl font-black text-slate-800 leading-tight drop-shadow-sm tracking-tight">
                 {log.aiFeedback?.dailyTitle}
