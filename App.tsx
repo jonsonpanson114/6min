@@ -514,7 +514,7 @@ const App: React.FC = () => {
           />
         )}
         {activeTab === 'calendar' && (
-          <CalendarView logs={logs} todayStr={todayStr} selectedDate={selectedDate} onSelectDate={setSelectedDate} onSelectLog={setSelectedLog} onNavigateToTab={setActiveTab} />
+          <CalendarView logs={logs} todayStr={todayStr} selectedDate={selectedDate} weeklyReport={weeklyReport} onSelectDate={setSelectedDate} onSelectLog={setSelectedLog} onNavigateToTab={setActiveTab} />
         )}
         {activeTab === 'interrogation' && (
           <InterrogationRoom
@@ -745,53 +745,6 @@ const App: React.FC = () => {
 
       {/* Detail Modal */}
       {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
-
-      {/* C. 週間レポートModal */}
-      {weeklyReport && (
-        <div className="fixed inset-0 z-[68] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-indigo-950/60 backdrop-blur-md" onClick={() => setWeeklyReport(null)} />
-          <div className="bg-white w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[3rem] shadow-2xl relative animate-in zoom-in-95 duration-500 p-8 border border-indigo-100">
-            <button onClick={() => setWeeklyReport(null)} className="absolute top-5 right-5 p-3 bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-600 transition-colors">
-              <X size={20} />
-            </button>
-
-            <div className="space-y-6">
-              <div className="text-center mb-6">
-                <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-3xl flex items-center justify-center mx-auto mb-4">
-                  <Calendar className="text-indigo-500" size={36} />
-                </div>
-                <h3 className="text-2xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
-                <p className="text-slate-400 text-sm">{weeklyReport.startDate?.replace(/-/g, '/')} 〜 {weeklyReport.endDate?.replace(/-/g, '/')}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100">
-                <p className="text-slate-700 leading-relaxed text-sm font-medium">{weeklyReport.insights}</p>
-              </div>
-
-              {weeklyReport.patterns.length > 0 && (
-                <div>
-                  <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Your Patterns</p>
-                  <div className="space-y-3">
-                    {weeklyReport.patterns.map((p, i) => (
-                      <div key={i} className="flex items-center gap-3 text-slate-600 bg-white/60 p-4 rounded-xl border border-slate-100">
-                        <div className="w-2 h-2 bg-indigo-400 rounded-full shrink-0" />
-                        <span className="text-sm">{p}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-center gap-3 py-4 bg-slate-50 rounded-2xl">
-                <span className="text-4xl">
-                  {weeklyReport.mood === 'great' ? '🌟' : weeklyReport.mood === 'good' ? '😊' : weeklyReport.mood === 'neutral' ? '😐' : '💪'}
-                </span>
-                <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">This Week's Mood</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 glass-nav px-6 pb-6 pt-4 flex justify-around items-end md:static md:bg-transparent md:border-none md:max-w-xl md:mx-auto md:pb-12 md:pt-0 z-50">
@@ -1221,12 +1174,13 @@ interface CalendarViewProps {
   logs: Record<string, DailyLog>;
   todayStr: string;
   selectedDate: string;
+  weeklyReport: WeeklyReport | null;
   onSelectDate: (date: string) => void;
   onSelectLog: (log: DailyLog) => void;
   onNavigateToTab: (tab: 'morning' | 'evening') => void;
 }
 
-const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDate, onSelectDate, onSelectLog, onNavigateToTab }) => {
+const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDate, weeklyReport, onSelectDate, onSelectLog, onNavigateToTab }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const formatMonthYear = (date: Date): string => {
@@ -1388,6 +1342,46 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDat
           <span className="font-bold">夜の記録</span>
         </div>
       </div>
+
+      {/* Weekly Report */}
+      {weeklyReport && (
+        <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Calendar className="text-indigo-500" size={32} />
+              </div>
+              <h3 className="text-xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
+              <p className="text-slate-400 text-xs">{weeklyReport.startDate?.replace(/-/g, '/')} 〜 {weeklyReport.endDate?.replace(/-/g, '/')}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
+              <p className="text-slate-700 leading-relaxed text-sm font-medium">{weeklyReport.insights}</p>
+            </div>
+
+            {weeklyReport.patterns.length > 0 && (
+              <div>
+                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Your Patterns</p>
+                <div className="space-y-3">
+                  {weeklyReport.patterns.map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 text-slate-600 bg-white/60 p-4 rounded-xl border border-slate-100">
+                      <div className="w-2 h-2 bg-indigo-400 rounded-full shrink-0" />
+                      <span className="text-sm">{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-3 py-3 bg-slate-50 rounded-2xl">
+              <span className="text-3xl">
+                {weeklyReport.mood === 'great' ? '🌟' : weeklyReport.mood === 'good' ? '😊' : weeklyReport.mood === 'neutral' ? '😐' : '💪'}
+              </span>
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">This Week's Mood</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
