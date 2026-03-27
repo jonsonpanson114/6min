@@ -22,7 +22,7 @@ export const requestPermission = async (): Promise<NotificationPermission> => {
 
 export const sendNotification = (title: string, body: string, onClick?: () => void): void => {
   if (Notification.permission !== 'granted') {
-    console.warn('Notification permission not granted');
+    console.warn('Notification permission not granted:', Notification.permission);
     return;
   }
 
@@ -31,21 +31,40 @@ export const sendNotification = (title: string, body: string, onClick?: () => vo
     icon: 'https://cdn-icons-png.flaticon.com/512/5904/5904053.png',
     badge: 'https://cdn-icons-png.flaticon.com/512/5904/5904053.png',
     tag: title,
-    requireInteraction: false,
+    requireInteraction: true,
+  };
+
+  const swOptions = {
+    ...options,
+    vibrate: [200, 100, 200],
   };
 
   try {
-    const notification = new Notification(title, options);
+    // Try to use Service Worker first (for PWA)
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.showNotification(title, swOptions);
+        console.log('Notification sent via Service Worker:', title);
+      }).catch((error) => {
+        console.warn('Service Worker notification failed, falling back to direct notification:', error);
+        // Fallback to direct notification
+        const notification = new Notification(title, options);
+        setTimeout(() => notification.close(), 5000);
+      });
+    } else {
+      // Direct notification fallback
+      const notification = new Notification(title, options);
+      console.log('Notification sent directly:', title);
 
-    if (onClick) {
-      notification.onclick = () => {
-        onClick();
-        notification.close();
-      };
+      if (onClick) {
+        notification.onclick = () => {
+          onClick();
+          notification.close();
+        };
+      }
+
+      setTimeout(() => notification.close(), 5000);
     }
-
-    // Auto-close after 5 seconds
-    setTimeout(() => notification.close(), 5000);
   } catch (error) {
     console.error('Failed to show notification:', error);
   }
