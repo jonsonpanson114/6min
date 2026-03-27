@@ -52,7 +52,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
-export const subscribeToPushNotifications = async () => {
+export const subscribeToPushNotifications = async (settings?: NotificationSettings) => {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn('[Push] Browser does not support Push Notifications');
     return null;
@@ -66,12 +66,6 @@ export const subscribeToPushNotifications = async () => {
     let subscription = await registration.pushManager.getSubscription();
     console.log('[Push] Current Subscription Status:', subscription ? 'Found' : 'Not Found');
 
-    if (subscription) {
-      console.log('[Push] Refreshing existing subscription on server...');
-      await sendSubscriptionToServer(subscription);
-      return subscription;
-    }
-
     const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
     if (!publicKey) {
       const msg = 'VITE_VAPID_PUBLIC_KEY is missing in env';
@@ -80,15 +74,18 @@ export const subscribeToPushNotifications = async () => {
       return null;
     }
 
-    console.log('[Push] Requesting new subscription with key:', publicKey.substring(0, 10) + '...');
-    const newSubscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey)
-    });
+    if (!subscription) {
+      console.log('[Push] Requesting new subscription with key:', publicKey.substring(0, 10) + '...');
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey)
+      });
+      console.log('[Push] New Subscription generated:', subscription.endpoint);
+    }
 
-    console.log('[Push] New Subscription generated:', newSubscription.endpoint);
-    await sendSubscriptionToServer(newSubscription);
-    return newSubscription;
+    // Refresh subscription with latest settings
+    await sendSubscriptionToServer(subscription, settings);
+    return subscription;
   } catch (error: any) {
     console.error('[Push] Subscription process failed:', error);
     alert('通知の登録に失敗しました: ' + error.message);
@@ -96,14 +93,26 @@ export const subscribeToPushNotifications = async () => {
   }
 };
 
-const sendSubscriptionToServer = async (subscription: PushSubscription) => {
+const sendSubscriptionToServer = async (subscription: PushSubscription, settings?: NotificationSettings) => {
   try {
+    const payload = {
+        subscription: subscription.toJSON(),
+        settings: settings ? {
+            morningHour: settings.morning.hour,
+            morningMinute: settings.morning.minute,
+            morningEnabled: settings.morning.enabled,
+            eveningHour: settings.evening.hour,
+            eveningMinute: settings.evening.minute,
+            eveningEnabled: settings.evening.enabled,
+        } : undefined
+    };
+
     const response = await fetch('/api/push-subscription', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(subscription),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {

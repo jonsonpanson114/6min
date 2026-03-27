@@ -151,9 +151,8 @@ const App: React.FC = () => {
       // Web Pushの購読を確実にする（権限がある場合）
       if (Notification.permission === 'granted') {
         console.log("[App] 権限あり。プッシュ購読開始...");
-        subscribeToPushNotifications().catch(e => {
+        subscribeToPushNotifications(settings.notifications).catch(e => {
             console.error("Mount subscription failed", e);
-            alert("起動時の通知購読に失敗: " + e.message);
         });
       } else {
         console.log("[App] 通知権限の状態:", Notification.permission);
@@ -251,6 +250,13 @@ const App: React.FC = () => {
     const newSettings = { ...settings, notifications: newNotificationSettings };
     setSettings(newSettings);
     localStorage.setItem('ai_diary_settings', JSON.stringify(newSettings));
+    
+    // サーバー側の購読情報も最新の設定で更新する
+    if (newNotificationSettings.enabled) {
+      subscribeToPushNotifications(newNotificationSettings).catch(e => {
+        console.error("Save subscription failed", e);
+      });
+    }
   };
 
   // ============================================
