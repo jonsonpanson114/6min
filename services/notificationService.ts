@@ -59,7 +59,9 @@ export const subscribeToPushNotifications = async () => {
 
     const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
     if (!publicKey) {
-      console.error('[Push] VITE_VAPID_PUBLIC_KEY is missing in env');
+      const msg = 'VITE_VAPID_PUBLIC_KEY is missing in env';
+      console.error('[Push]', msg);
+      alert('エラー: VAPID公開鍵が見つかりません。');
       return null;
     }
 
@@ -72,26 +74,34 @@ export const subscribeToPushNotifications = async () => {
     console.log('[Push] New Subscription generated:', newSubscription.endpoint);
     await sendSubscriptionToServer(newSubscription);
     return newSubscription;
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Push] Subscription process failed:', error);
+    alert('通知の登録に失敗しました: ' + error.message);
     return null;
   }
 };
 
 const sendSubscriptionToServer = async (subscription: PushSubscription) => {
-  const response = await fetch('/api/push-subscription', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(subscription),
-  });
+  try {
+    const response = await fetch('/api/push-subscription', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(subscription),
+    });
 
-  if (!response.ok) {
-    throw new Error('Failed to send subscription to server');
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error('サーバー応答エラー: ' + errorText);
+    }
+
+    console.log('Successfully subscribed to push notifications');
+  } catch (error: any) {
+    console.error('Failed to send subscription to server:', error);
+    alert('サーバーへの登録に失敗しました: ' + error.message);
+    throw error;
   }
-
-  console.log('Successfully subscribed to push notifications');
 };
 
 export const sendNotification = (title: string, body: string, onClick?: () => void): void => {
