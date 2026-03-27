@@ -55,9 +55,10 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Find a window with the same origin
       for (const client of clientList) {
-        if (client.url === '/' && 'focus' in client) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
           return client.focus();
         }
       }

@@ -255,6 +255,28 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onSave
             <Check size={24} />
             設定を保存
           </button>
+
+          {/* Diagnostic Info (Debug) */}
+          <div className="mt-8 pt-6 border-t border-slate-100 space-y-3 opacity-60 text-xs text-slate-400">
+            <p className="font-bold flex items-center gap-1"><AlertCircle size={12} /> 診断情報 (Android通信テスト用)</p>
+            <div className="bg-slate-50 p-3 rounded-lg space-y-1">
+              <p>1. 権限: {permissionStatus}</p>
+              <p>2. SW稼働: {'serviceWorker' in navigator ? 'OK' : '非対応'}</p>
+              <p id="debug-sub-status">3. 購読: 確認中...</p>
+              <script dangerouslySetInnerHTML={{ __html: `
+                setTimeout(async () => {
+                  try {
+                    const reg = await navigator.serviceWorker.ready;
+                    const sub = await reg.pushManager.getSubscription();
+                    document.getElementById('debug-sub-status').innerText = '3. 購読: ' + (sub ? '登録済み' : '未登録');
+                  } catch(e) {
+                    document.getElementById('debug-sub-status').innerText = '3. 購読: エラー';
+                  }
+                }, 1000);
+              `}} />
+            </div>
+            <p className="text-[10px] leading-tight text-center">※Androidで通知が届かない場合、ブラウザが「HTTPS」接続であること、かつ「ホーム画面に追加」して起動しているか確認してください。</p>
+          </div>
         </div>
       </div>
     </div>

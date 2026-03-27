@@ -38,30 +38,44 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 export const subscribeToPushNotifications = async () => {
-  if (!('serviceWorker' in navigator)) return;
-
-  const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
-
-  if (subscription) {
-    // Already subscribed, but refresh on server just in case
-    await sendSubscriptionToServer(subscription);
-    return subscription;
-  }
-
-  const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-  if (!publicKey) {
-    console.error('VAPID public key not found in environment variables');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('[Push] Browser does not support Push Notifications');
     return null;
   }
 
-  const newSubscription = await registration.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(publicKey)
-  });
+  try {
+    console.log('[Push] Registration check...');
+    const registration = await navigator.serviceWorker.ready;
+    console.log('[Push] Service Worker Ready:', registration);
 
-  await sendSubscriptionToServer(newSubscription);
-  return newSubscription;
+    let subscription = await registration.pushManager.getSubscription();
+    console.log('[Push] Current Subscription Status:', subscription ? 'Found' : 'Not Found');
+
+    if (subscription) {
+      console.log('[Push] Refreshing existing subscription on server...');
+      await sendSubscriptionToServer(subscription);
+      return subscription;
+    }
+
+    const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!publicKey) {
+      console.error('[Push] VITE_VAPID_PUBLIC_KEY is missing in env');
+      return null;
+    }
+
+    console.log('[Push] Requesting new subscription with key:', publicKey.substring(0, 10) + '...');
+    const newSubscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+
+    console.log('[Push] New Subscription generated:', newSubscription.endpoint);
+    await sendSubscriptionToServer(newSubscription);
+    return newSubscription;
+  } catch (error) {
+    console.error('[Push] Subscription process failed:', error);
+    return null;
+  }
 };
 
 const sendSubscriptionToServer = async (subscription: PushSubscription) => {

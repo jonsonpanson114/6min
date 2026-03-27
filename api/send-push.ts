@@ -49,10 +49,10 @@ export default async function handler(req: any, res: any) {
             return res.status(200).json({ ok: true, message: "No subscriptions found" });
         }
 
-        // 2. Send push to each subscription
         const results = await Promise.allSettled(
             subscriptions.map(async (subStr: string) => {
                 const sub = JSON.parse(subStr);
+                console.log(`[Push] Sending push to endpoint: ${sub.endpoint.substring(0, 30)}...`);
                 return webpush.sendNotification(
                     sub,
                     JSON.stringify({ title, body, date, type })
