@@ -493,23 +493,23 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => updateSettings({ ...settings, personality: settings.personality === 'philosopher' ? 'jinnai' : 'philosopher' })}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${settings.personality === 'jinnai'
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${settings.personality === 'jinnai'
                   ? 'bg-slate-800 border-slate-700 text-white'
                   : 'bg-white/50 border-rose-100 text-slate-600'
                   } shadow-sm backdrop-blur-sm group`}
                 title={settings.personality === 'jinnai' ? '陣内モード中' : '哲学者モード中'}
               >
                 <Settings size={14} className={`transition-transform duration-500 ${settings.personality === 'jinnai' ? 'rotate-90 text-amber-400' : 'text-slate-400'}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest">
+                <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">
                   {settings.personality === 'jinnai' ? 'JINNAI' : 'NORMAL'}
                 </span>
               </button>
 
-              {/* Notification Settings Button */}
+              {/* Notification & Connection Status Combined */}
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setSettingsModalOpen(true)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
                     settings.notifications.enabled
                       ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                       : 'bg-white/50 border-slate-100 text-slate-600'
@@ -518,32 +518,37 @@ const App: React.FC = () => {
                 >
                   <Mail size={14} />
                   {settings.notifications.enabled && (
-                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
                   )}
                 </button>
                 
-                {/* Connection Status Indicator */}
+                {/* Connection Status Indicator - Compact LED style */}
                 <div 
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-white/30 backdrop-blur-sm border border-white/20 text-[9px] font-black uppercase tracking-tighter text-slate-400"
+                  className="flex items-center justify-center w-7 h-7 rounded-full bg-white/30 backdrop-blur-sm border border-white/20"
                   title={isConnected === null ? '通信確認中...' : isConnected ? 'サーバー接続中' : 'オフライン (接続失敗)'}
                 >
-                  <div className={`w-1.5 h-1.5 rounded-full ${
+                  <div className={`w-2 h-2 rounded-full ${
                     isConnected === null ? 'bg-slate-300 animate-pulse' : 
                     isConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.5)]' : 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.5)]'
                   }`} />
-                  <span className="hidden xs:inline">{isConnected === null ? 'Ping' : isConnected ? 'Live' : 'Off'}</span>
                 </div>
               </div>
-              {/* E. AI関係進化表示 */}
-                <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
-                  <span className="text-lg">{getRelationshipIcon(relationship.level)}</span>
-                  <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
-                    {getRelationshipLabel(relationship.level)}
-                  </span>
-                </div>
-              <div className="flex items-center gap-1.5 bg-white/50 px-3 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
+
+              {/* Relationship Indicator */}
+              <div className="flex items-center gap-1.5 bg-white/50 px-2.5 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
+                <span className="text-base">{getRelationshipIcon(relationship.level)}</span>
+                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline">
+                  {getRelationshipLabel(relationship.level)}
+                </span>
+              </div>
+
+              {/* Streak Counter */}
+              <div className="flex items-center gap-1 bg-white/50 px-2.5 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
                 <Flame className="text-orange-500 animate-pulse" size={16} fill="currentColor" />
-                <span className="text-xs font-black text-slate-700">{stats.streak} <span className="text-[10px] text-slate-500 font-bold uppercase">日連続</span></span>
+                <span className="text-xs font-black text-slate-700">
+                    {stats.streak} 
+                    <span className="text-[9px] text-slate-500 font-bold uppercase ml-0.5 hidden sm:inline">Days</span>
+                </span>
               </div>
             </div>
           </div>
