@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+/// <reference types="vite/client" />
 import { NotificationSettings } from '../types';
 
 let scheduledTimers: number[] = [];
@@ -8,16 +10,74 @@ export const requestPermission = async (): Promise<NotificationPermission> => {
     return 'denied';
   }
 
-  if (Notification.permission === 'granted') {
-    return 'granted';
+  let permission = Notification.permission;
+  if (permission !== 'granted' && permission !== 'denied') {
+    permission = await Notification.requestPermission();
   }
 
-  if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission;
+  if (permission === 'granted') {
+    try {
+      await subscribeToPushNotifications();
+    } catch (error) {
+      console.error('Failed to subscribe to push notifications:', error);
+    }
   }
 
-  return Notification.permission;
+  return permission;
+};
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+};
+
+export const subscribeToPushNotifications = async () => {
+  if (!('serviceWorker' in navigator)) return;
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+
+  if (subscription) {
+    // Already subscribed, but refresh on server just in case
+    await sendSubscriptionToServer(subscription);
+    return subscription;
+  }
+
+  const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  if (!publicKey) {
+    console.error('VAPID public key not found in environment variables');
+    return null;
+  }
+
+  const newSubscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey)
+  });
+
+  await sendSubscriptionToServer(newSubscription);
+  return newSubscription;
+};
+
+const sendSubscriptionToServer = async (subscription: PushSubscription) => {
+  const response = await fetch('/api/push-subscription', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(subscription),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to send subscription to server');
+  }
+
+  console.log('Successfully subscribed to push notifications');
 };
 
 export const sendNotification = (title: string, body: string, onClick?: () => void): void => {
@@ -70,14 +130,46 @@ export const sendNotification = (title: string, body: string, onClick?: () => vo
   }
 };
 
-export const sendTestNotification = (): void => {
-  sendNotification(
-    'テスト通知 📱',
-    '通知設定が正常に動作しています！',
-    () => {
-      window.focus();
+export const sendTestNotification = async (): Promise<void> => {
+  if (!('serviceWorker' in navigator)) {
+    sendNotification('テスト通知 📱', 'ブラウザがサービスワーカーをサポートしていません。');
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+  const subscription = await registration.pushManager.getSubscription();
+
+  if (!subscription) {
+    sendNotification('テスト通知 📱', 'まずは通知を許可して、購読を開始してください。');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/send-push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: 'テスト通知 陣内より 📱',
+        body: 'サーバーからのプッシュ信号をキャッチしたぜ。完璧だ！',
+        type: 'test'
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Server returned error');
     }
-  );
+
+    console.log('Server-side test push triggered successfully');
+  } catch (error) {
+    console.error('Failed to trigger server-side test push:', error);
+    // Fallback to local
+    sendNotification(
+      'ローカル通知テスト 📱',
+      'サーバー経由は失敗しましたが、ローカル通知は動作しています。'
+    );
+  }
 };
 
 const calculateNextTrigger = (hour: number, minute: number): number => {
@@ -101,12 +193,16 @@ const scheduleSingleNotification = (
   body: string,
   onClick?: () => void
 ): number => {
+  // NOTE: In the new Web Push architecture, scheduling is handled by the server (Cron jobs).
+  // This local timer remains as a fallback for the current session, but the real power
+  // comes from api/send-push.ts.
+  
   const delay = calculateNextTrigger(hour, minute);
 
   const timerId = window.setTimeout(() => {
     sendNotification(title, body, onClick);
 
-    // Reschedule for next day
+    // Reschedule for next day (local fallback)
     scheduleSingleNotification(hour, minute, title, body, onClick);
   }, delay);
 

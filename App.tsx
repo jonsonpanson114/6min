@@ -5,7 +5,7 @@ import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, ge
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import SettingsModal from './components/SettingsModal';
-import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings } from './services/notificationService';
+import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
   Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
@@ -132,12 +132,17 @@ const App: React.FC = () => {
         () => setActiveTab('morning'),
         () => setActiveTab('evening')
       );
+
+      // Web Pushの購読を確実にする（権限がある場合）
+      if (Notification.permission === 'granted') {
+        subscribeToPushNotifications().catch(e => console.error("Mount subscription failed", e));
+      }
     }
 
     return () => {
       clearScheduledNotifications();
     };
-  }, [settings.notifications]);
+  }, [settings.notifications.enabled]);
 
   const currentLevel = useMemo(() => {
     return [...GROWTH_LEVELS].reverse().find(l => stats.xp >= l.minXp) || GROWTH_LEVELS[0];

@@ -12,20 +12,32 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: '.',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Soul Canvas - 6分間日記',
         short_name: 'Soul Canvas',
         description: 'あなたの魂の色彩を記録する、瞑想的AI日記アプリ',
         theme_color: '#f43f5e',
+        background_color: '#ffffff',
+        display: 'standalone',
+        orientation: 'portrait',
         icons: [
           {
             src: 'https://cdn-icons-png.flaticon.com/512/5904/5904053.png',
             sizes: '512x512',
             type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
+      },
+      devOptions: {
+        enabled: true,
+        type: 'module',
       }
     })
   ],

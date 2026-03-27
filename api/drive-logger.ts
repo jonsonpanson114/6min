@@ -1,5 +1,5 @@
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzCQPNsL18vEfa5_8UXFr3phUJG-FarqCn3vbslVSzlet_cok1N5s3D4fpfNTWW8-Npww/exec";
-const AUTH_TOKEN = "jonsonpanson";
+const GAS_URL = process.env.VITE_GAS_URL || "";
+const AUTH_TOKEN = process.env.GAS_AUTH_TOKEN || "jonsonpanson";
 const APP_NAME = "6min";
 
 type LogLevel = "INFO" | "WARN" | "ERROR";
