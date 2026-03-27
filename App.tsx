@@ -25,7 +25,15 @@ const App: React.FC = () => {
   });
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedLog, setSelectedLog] = useState<DailyLog | null>(null);
-  const [settings, setSettings] = useState<UserSettings>({ personality: 'philosopher' });
+  const [settings, setSettings] = useState<UserSettings>({
+    personality: 'philosopher',
+    notifications: {
+      enabled: false,
+      morning: { enabled: false, hour: 6, minute: 30 },
+      evening: { enabled: false, hour: 22, minute: 0 },
+      permissionRequested: false
+    }
+  });
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [parallelStory, setParallelStory] = useState<{ story: string; divergencePoint: string; worldDescription: string } | null>(null);
   const [isParallelLoading, setIsParallelLoading] = useState(false);
@@ -118,7 +126,7 @@ const App: React.FC = () => {
 
   // 通知スケジュールの管理
   useEffect(() => {
-    if (settings.notifications?.enabled) {
+    if (settings.notifications.enabled) {
       scheduleNotifications(
         settings.notifications,
         () => setActiveTab('morning'),
@@ -475,14 +483,14 @@ const App: React.FC = () => {
               <button
                 onClick={() => setSettingsModalOpen(true)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
-                  settings.notifications?.enabled
+                  settings.notifications.enabled
                     ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                     : 'bg-white/50 border-slate-100 text-slate-600'
                 } shadow-sm backdrop-blur-sm relative`}
                 title="通知設定"
               >
                 <Mail size={14} />
-                {settings.notifications?.enabled && (
+                {settings.notifications.enabled && (
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
                 )}
               </button>
@@ -802,7 +810,7 @@ const App: React.FC = () => {
       {/* Settings Modal */}
       {settingsModalOpen && (
         <SettingsModal
-          settings={settings.notifications!}
+          settings={settings.notifications}
           onClose={() => setSettingsModalOpen(false)}
           onSave={updateNotificationSettings}
         />
