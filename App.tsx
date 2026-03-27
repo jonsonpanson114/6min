@@ -126,6 +126,7 @@ const App: React.FC = () => {
 
   // 通知スケジュールの管理
   useEffect(() => {
+    console.log("[App] 通知Effect起動。有効状態:", settings.notifications.enabled);
     if (settings.notifications.enabled) {
       scheduleNotifications(
         settings.notifications,
@@ -135,7 +136,13 @@ const App: React.FC = () => {
 
       // Web Pushの購読を確実にする（権限がある場合）
       if (Notification.permission === 'granted') {
-        subscribeToPushNotifications().catch(e => console.error("Mount subscription failed", e));
+        console.log("[App] 権限あり。プッシュ購読開始...");
+        subscribeToPushNotifications().catch(e => {
+            console.error("Mount subscription failed", e);
+            alert("起動時の通知購読に失敗: " + e.message);
+        });
+      } else {
+        console.log("[App] 通知権限の状態:", Notification.permission);
       }
     }
 

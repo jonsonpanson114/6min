@@ -156,6 +156,23 @@
         </div>
     </div>
     <script type="module" src="./index.tsx"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Vite PWAが生成する sw.js を明示的に登録試行
+                navigator.serviceWorker.register('./sw.js').then(function(registration) {
+                    console.log('SW registration successful with scope: ', registration.scope);
+                    // 登録成功を画面で確認したい場合はここをアンコメント
+                    // alert('SW 登録成功: ' + registration.scope);
+                }).catch(function(err) {
+                    console.error('SW registration failed: ', err);
+                    alert('SW 登録失敗: ' + err);
+                });
+            });
+        } else {
+            alert('このブラウザは Service Worker をサポートしていません');
+        }
+    </script>
 </body>
 
 </html>
