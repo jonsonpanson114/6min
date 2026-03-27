@@ -12,31 +12,35 @@ export default async function handler(req: any, res: any) {
     }
 
     try {
-        const subscription = req.body;
+        const payload = req.body;
+        const action = payload.action || 'subscribe';
 
-        if (!subscription || !subscription.endpoint) {
+        // Check if it's a subscription or a ping
+        if (action === 'subscribe' && (!payload || !payload.endpoint)) {
             return res.status(400).json({ error: "Missing subscription data" });
         }
 
-        // Save subscription to GAS
+        // Save subscription or ping GAS
         const response = await fetch(GAS_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 auth_token: AUTH_TOKEN,
                 app_name: APP_NAME,
-                action: "subscribe",
-                subscription: JSON.stringify(subscription),
+                action: action,
+                subscription: action === 'subscribe' ? JSON.stringify(payload) : undefined,
             }),
         });
 
         if (!response.ok) {
-            throw new Error("Failed to save subscription to GAS");
+            const errorText = await response.text();
+            throw new Error(`GAS returned ${response.status}: ${errorText}`);
         }
 
-        return res.status(200).json({ ok: true });
+        const data = await response.json();
+        return res.status(200).json(data);
     } catch (error: any) {
-        console.error("Subscription error:", error);
+        console.error("Subscription/Ping error:", error);
         return res.status(500).json({ error: error.message });
     }
 }

@@ -6,6 +6,7 @@ import {
   sendTestNotification,
   getPermissionStatus,
   isNotificationSupported,
+  checkBackendConnection,
 } from '../services/notificationService';
 
 interface SettingsModalProps {
@@ -257,25 +258,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onSave
           </button>
 
           {/* Diagnostic Info (Debug) */}
-          <div className="mt-8 pt-6 border-t border-slate-100 space-y-3 opacity-60 text-xs text-slate-400">
-            <p className="font-bold flex items-center gap-1"><AlertCircle size={12} /> 診断情報 (Android通信テスト用)</p>
-            <div className="bg-slate-50 p-3 rounded-lg space-y-1">
+          <div className="mt-8 pt-6 border-t border-slate-100 space-y-3 opacity-80 text-xs text-slate-400">
+            <div className="flex items-center justify-between">
+              <p className="font-bold flex items-center gap-1 text-slate-500"><AlertCircle size={12} /> 診断情報 (Android通信テスト用)</p>
+              <button 
+                onClick={async () => {
+                  try {
+                    alert('接続テストを開始します...');
+                    const ok = await checkBackendConnection();
+                    if (!ok) throw new Error('Vercel-GAS間の通信に失敗しました');
+                    
+                    const permission = await requestPermission();
+                    if (permission !== 'granted') throw new Error('通知権限がありません');
+                    
+                    alert('✅ 通信テスト成功！サーバーに接続できています。');
+                  } catch (e: any) {
+                    alert('❌ テスト失敗: ' + e.message);
+                  }
+                }}
+                className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full font-bold hover:bg-indigo-100 transition-colors"
+              >
+                接続テスト実行
+              </button>
+            </div>
+            <div className="bg-slate-100 p-4 rounded-2xl space-y-1.5 text-slate-600 font-medium">
               <p>1. 権限: {permissionStatus}</p>
               <p>2. SW稼働: {'serviceWorker' in navigator ? 'OK' : '非対応'}</p>
               <p id="debug-sub-status">3. 購読: 確認中...</p>
+              <p id="debug-last-err" className="text-rose-400 text-[10px] italic"></p>
               <script dangerouslySetInnerHTML={{ __html: `
-                setTimeout(async () => {
+                (async () => {
                   try {
                     const reg = await navigator.serviceWorker.ready;
                     const sub = await reg.pushManager.getSubscription();
-                    document.getElementById('debug-sub-status').innerText = '3. 購読: ' + (sub ? '登録済み' : '未登録');
+                    const el = document.getElementById('debug-sub-status');
+                    if (el) el.innerText = '3. 購読: ' + (sub ? '登録済み (OK)' : '未登録');
                   } catch(e) {
-                    document.getElementById('debug-sub-status').innerText = '3. 購読: エラー';
+                    const el = document.getElementById('debug-sub-status');
+                    const errEl = document.getElementById('debug-last-err');
+                    if (el) el.innerText = '3. 購読: エラー';
+                    if (errEl) errEl.innerText = e.message;
                   }
-                }, 1000);
+                })();
               `}} />
             </div>
-            <p className="text-[10px] leading-tight text-center">※Androidで通知が届かない場合、ブラウザが「HTTPS」接続であること、かつ「ホーム画面に追加」して起動しているか確認してください。</p>
+            <p className="text-[10px] leading-tight text-center text-slate-400">※Androidで通知が届かない場合、必ず「ホーム画面に追加」してから確認してください。</p>
           </div>
         </div>
       </div>

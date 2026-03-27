@@ -7,6 +7,10 @@
 
 const AUTH_TOKEN = "jonsonpanson"; // [.env] の GAS_AUTH_TOKEN と一致させてください
 
+function doGet(e) {
+  return response({ ok: true, message: "GAS is running and reachable!" });
+}
+
 function doPost(e) {
   try {
     const params = JSON.parse(e.postData.contents);

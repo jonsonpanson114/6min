@@ -26,6 +26,21 @@ export const requestPermission = async (): Promise<NotificationPermission> => {
   return permission;
 };
 
+export const checkBackendConnection = async (): Promise<boolean> => {
+  try {
+    const response = await fetch('/api/push-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'ping' })
+    });
+    const data = await response.json();
+    return data.ok === true || data.message?.includes('GAS');
+  } catch (e) {
+    console.error('[Conn] Connection check failed:', e);
+    return false;
+  }
+};
+
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');

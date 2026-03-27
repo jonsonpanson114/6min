@@ -5,7 +5,7 @@ import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, ge
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import SettingsModal from './components/SettingsModal';
-import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications } from './services/notificationService';
+import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications, checkBackendConnection } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
   Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
@@ -47,6 +47,20 @@ const App: React.FC = () => {
 
   // Notification settings
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
+
+  // 通信状態のチェック
+  useEffect(() => {
+    const checkConnection = async () => {
+      console.log("[Conn] Checking backend connectivity...");
+      const ok = await checkBackendConnection();
+      setIsConnected(ok);
+    };
+    checkConnection();
+    // 30秒ごとにチェック
+    const interval = setInterval(checkConnection, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     try {
@@ -492,20 +506,34 @@ const App: React.FC = () => {
               </button>
 
               {/* Notification Settings Button */}
-              <button
-                onClick={() => setSettingsModalOpen(true)}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
-                  settings.notifications.enabled
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                    : 'bg-white/50 border-slate-100 text-slate-600'
-                } shadow-sm backdrop-blur-sm relative`}
-                title="通知設定"
-              >
-                <Mail size={14} />
-                {settings.notifications.enabled && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
-                )}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setSettingsModalOpen(true)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                    settings.notifications.enabled
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                      : 'bg-white/50 border-slate-100 text-slate-600'
+                  } shadow-sm backdrop-blur-sm relative`}
+                  title="通知設定"
+                >
+                  <Mail size={14} />
+                  {settings.notifications.enabled && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                  )}
+                </button>
+                
+                {/* Connection Status Indicator */}
+                <div 
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-white/30 backdrop-blur-sm border border-white/20 text-[9px] font-black uppercase tracking-tighter text-slate-400"
+                  title={isConnected === null ? '通信確認中...' : isConnected ? 'サーバー接続中' : 'オフライン (接続失敗)'}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full ${
+                    isConnected === null ? 'bg-slate-300 animate-pulse' : 
+                    isConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.5)]' : 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.5)]'
+                  }`} />
+                  <span className="hidden xs:inline">{isConnected === null ? 'Ping' : isConnected ? 'Live' : 'Off'}</span>
+                </div>
+              </div>
               {/* E. AI関係進化表示 */}
                 <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
                   <span className="text-lg">{getRelationshipIcon(relationship.level)}</span>
