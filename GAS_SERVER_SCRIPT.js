@@ -22,6 +22,11 @@ function doPost(e) {
 
     const action = params.action;
 
+    // 0. 生存確認（Heartbeat）
+    if (action === "ping") {
+      return response({ ok: true, message: "GAS is alive and well!" });
+    }
+
     // 1. 日記コンテンツの保存
     if (action === "content") {
       return handleSaveContent(params);
