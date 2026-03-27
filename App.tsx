@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings, PastSelfLetter, DailyQuest, WeeklyReport, MissionResult, Relationship, RelationshipLevel, QuestType } from './types';
+import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings, PastSelfLetter, DailyQuest, WeeklyReport, MissionResult, Relationship, RelationshipLevel, QuestType, NotificationSettings } from './types';
 import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, generateVoiceAudio, generatePastSelfLetter, generateDailyQuest as generateDailyQuestAI, generateWeeklyReport, generateMissionResponse, calculateRelationship } from './services/geminiService';
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
+import SettingsModal from './components/SettingsModal';
+import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
   Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
@@ -34,6 +36,9 @@ const App: React.FC = () => {
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [missionResultModal, setMissionResultModal] = useState<{date: string, mission: string} | null>(null);
   const [missionResponse, setMissionResponse] = useState<{text: string, completed: boolean} | null>(null);
+
+  // Notification settings
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -70,8 +75,22 @@ const App: React.FC = () => {
       if (savedSettings) {
         try {
           const parsedSettings = JSON.parse(savedSettings);
-          if (parsedSettings) setSettings(parsedSettings);
+          if (parsedSettings) {
+            // マイグレーション: 通知設定がない場合はデフォルト値を設定
+            if (!parsedSettings.notifications) {
+              parsedSettings.notifications = getDefaultNotificationSettings();
+            }
+            setSettings(parsedSettings);
+          }
         } catch(e) { console.error("Settings parse error", e); }
+      } else {
+        // 初回アクセス: デフォルト設定を保存
+        const defaultSettings = {
+          personality: 'philosopher' as const,
+          notifications: getDefaultNotificationSettings()
+        };
+        setSettings(defaultSettings);
+        localStorage.setItem('ai_diary_settings', JSON.stringify(defaultSettings));
       }
       // 新規追加のロード
       if (savedPastSelfLetter) {
@@ -96,6 +115,21 @@ const App: React.FC = () => {
       console.error("Failed to load data", e);
     }
   }, [todayStr]);
+
+  // 通知スケジュールの管理
+  useEffect(() => {
+    if (settings.notifications?.enabled) {
+      scheduleNotifications(
+        settings.notifications,
+        () => setActiveTab('morning'),
+        () => setActiveTab('evening')
+      );
+    }
+
+    return () => {
+      clearScheduledNotifications();
+    };
+  }, [settings.notifications]);
 
   const currentLevel = useMemo(() => {
     return [...GROWTH_LEVELS].reverse().find(l => stats.xp >= l.minXp) || GROWTH_LEVELS[0];
@@ -175,6 +209,12 @@ const App: React.FC = () => {
   };
 
   const updateSettings = (newSettings: UserSettings) => {
+    setSettings(newSettings);
+    localStorage.setItem('ai_diary_settings', JSON.stringify(newSettings));
+  };
+
+  const updateNotificationSettings = (newNotificationSettings: NotificationSettings) => {
+    const newSettings = { ...settings, notifications: newNotificationSettings };
     setSettings(newSettings);
     localStorage.setItem('ai_diary_settings', JSON.stringify(newSettings));
   };
@@ -429,6 +469,22 @@ const App: React.FC = () => {
                 <span className="text-[10px] font-black uppercase tracking-widest">
                   {settings.personality === 'jinnai' ? 'JINNAI' : 'NORMAL'}
                 </span>
+              </button>
+
+              {/* Notification Settings Button */}
+              <button
+                onClick={() => setSettingsModalOpen(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+                  settings.notifications?.enabled
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                    : 'bg-white/50 border-slate-100 text-slate-600'
+                } shadow-sm backdrop-blur-sm relative`}
+                title="通知設定"
+              >
+                <Mail size={14} />
+                {settings.notifications?.enabled && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse"></span>
+                )}
               </button>
               {/* E. AI関係進化表示 */}
                 <div className="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
@@ -741,6 +797,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Settings Modal */}
+      {settingsModalOpen && (
+        <SettingsModal
+          settings={settings.notifications!}
+          onClose={() => setSettingsModalOpen(false)}
+          onSave={updateNotificationSettings}
+        />
       )}
 
       {/* Detail Modal */}

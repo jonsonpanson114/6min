@@ -49,8 +49,24 @@ export const GROWTH_LEVELS = [
 
 export type Personality = 'philosopher' | 'jinnai';
 
+export interface NotificationSettings {
+  enabled: boolean;
+  morning: {
+    enabled: boolean;
+    hour: number;
+    minute: number;
+  };
+  evening: {
+    enabled: boolean;
+    hour: number;
+    minute: number;
+  };
+  permissionRequested: boolean;
+}
+
 export interface UserSettings {
   personality: Personality;
+  notifications: NotificationSettings;
 }
 
 // A. 昨日の私からのメッセージ
