@@ -260,7 +260,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ settings, onClose, onSave
           {/* Diagnostic Info (Debug) */}
           <div className="mt-8 pt-6 border-t border-slate-100 space-y-3 opacity-80 text-xs text-slate-400">
             <div className="flex items-center justify-between">
-              <p className="font-bold flex items-center gap-1 text-slate-500"><AlertCircle size={12} /> 診断情報 (Android通信テスト用)</p>
+              <p className="font-bold flex items-center gap-1 text-slate-500"><AlertCircle size={12} /> 診断情報 (Soul Canvas v1.5)</p>
               <button 
                 onClick={async () => {
                   try {

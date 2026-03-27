@@ -482,18 +482,27 @@ const App: React.FC = () => {
         <div className="absolute top-[40%] right-[30%] w-72 h-72 bg-purple-200/40 rounded-full blur-[80px] animate-pulse-glow mix-blend-multiply" />
       </div>
 
+      {/* Connection Status Indicator - Compact LED style */}
+      <div className="fixed top-2 right-2 z-[60] flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/50 backdrop-blur-md border border-white/30 shadow-sm text-[8px] font-bold text-slate-400">
+        <div className={`w-1.5 h-1.5 rounded-full ${
+          isConnected === null ? 'bg-slate-300 animate-pulse' : 
+          isConnected ? 'bg-emerald-500 shadow-[0_0_5px_rgba(52,211,153,0.5)]' : 'bg-rose-500 shadow-[0_0_5px_rgba(251,113,133,0.5)]'
+        }`} />
+        <span className="opacity-60">v1.5</span>
+      </div>
+
       {/* Header */}
-      <header className="glass-panel sticky top-4 mx-4 mt-4 rounded-3xl z-40 transition-all duration-300">
-        <div className="px-6 py-4 max-w-2xl mx-auto space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-black bg-gradient-to-r from-rose-500 via-purple-500 to-indigo-600 bg-clip-text text-transparent flex items-center gap-3 drop-shadow-sm">
-              <Sparkles className="text-amber-400 animate-spin-slow" size={26} fill="currentColor" />
+      <header className="glass-panel sticky top-4 mx-2 sm:mx-4 mt-4 rounded-3xl z-40 transition-all duration-300">
+        <div className="px-3 py-3 sm:px-6 sm:py-4 max-w-2xl mx-auto space-y-4">
+          <div className="flex items-center justify-between gap-2 overflow-hidden">
+            <h1 className="text-xl sm:text-2xl font-black bg-gradient-to-r from-rose-500 via-purple-500 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2 sm:gap-3 drop-shadow-sm shrink-0 truncate max-w-[40%]">
+              <Sparkles className="text-amber-400 animate-spin-slow" size={20} fill="currentColor" />
               Soul Canvas
             </h1>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
               <button
                 onClick={() => updateSettings({ ...settings, personality: settings.personality === 'philosopher' ? 'jinnai' : 'philosopher' })}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${settings.personality === 'jinnai'
+                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-full border transition-all duration-300 ${settings.personality === 'jinnai'
                   ? 'bg-slate-800 border-slate-700 text-white'
                   : 'bg-white/50 border-rose-100 text-slate-600'
                   } shadow-sm backdrop-blur-sm group`}
@@ -506,10 +515,10 @@ const App: React.FC = () => {
               </button>
 
               {/* Notification & Connection Status Combined */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => setSettingsModalOpen(true)}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-full border transition-all duration-300 ${
+                  className={`flex items-center gap-2 px-2 py-1.5 rounded-full border transition-all duration-300 ${
                     settings.notifications.enabled
                       ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                       : 'bg-white/50 border-slate-100 text-slate-600'
@@ -521,30 +530,19 @@ const App: React.FC = () => {
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span>
                   )}
                 </button>
-                
-                {/* Connection Status Indicator - Compact LED style */}
-                <div 
-                  className="flex items-center justify-center w-7 h-7 rounded-full bg-white/30 backdrop-blur-sm border border-white/20"
-                  title={isConnected === null ? '通信確認中...' : isConnected ? 'サーバー接続中' : 'オフライン (接続失敗)'}
-                >
-                  <div className={`w-2 h-2 rounded-full ${
-                    isConnected === null ? 'bg-slate-300 animate-pulse' : 
-                    isConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.5)]' : 'bg-rose-400 shadow-[0_0_5px_rgba(251,113,133,0.5)]'
-                  }`} />
-                </div>
               </div>
 
               {/* Relationship Indicator */}
-              <div className="flex items-center gap-1.5 bg-white/50 px-2.5 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
-                <span className="text-base">{getRelationshipIcon(relationship.level)}</span>
+              <div className="flex items-center gap-1 bg-white/50 px-2 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
+                <span className="text-sm">{getRelationshipIcon(relationship.level)}</span>
                 <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest hidden sm:inline">
                   {getRelationshipLabel(relationship.level)}
                 </span>
               </div>
 
               {/* Streak Counter */}
-              <div className="flex items-center gap-1 bg-white/50 px-2.5 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
-                <Flame className="text-orange-500 animate-pulse" size={16} fill="currentColor" />
+              <div className="flex items-center gap-1 bg-white/50 px-2 py-1.5 rounded-full border border-rose-100 shadow-sm backdrop-blur-sm">
+                <Flame className="text-orange-500 animate-pulse" size={14} fill="currentColor" />
                 <span className="text-xs font-black text-slate-700">
                     {stats.streak} 
                     <span className="text-[9px] text-slate-500 font-bold uppercase ml-0.5 hidden sm:inline">Days</span>
