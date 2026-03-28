@@ -51,8 +51,9 @@ function doPost(e) {
 }
 
 /**
- * 毎分または15分おきにトリガーで実行する関数
+ * 毎分トリガーで実行する関数
  * 各ユーザーの設定時間を確認し、合致すれば通知を送るぜ
+ * 重複送信防止：最後に通知した日時を記録
  */
 function checkAndSendNotifications() {
   const now = new Date();
@@ -60,39 +61,49 @@ function checkAndSendNotifications() {
   const jstNow = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Tokyo"}));
   const currentHour = jstNow.getHours();
   const currentMin = jstNow.getMinutes();
+  const todayStr = jstNow.toISOString().split('T')[0]; // YYYY-MM-DD
 
   const sheet = getOrCreateSheet("PushSubscriptions");
-  const data = sheet.getDataRange().getValues();
-  
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
+
+  for (let i = 1; i < sheet.getLastRow(); i++) {
+    const row = sheet.getRange(i + 1, 1, 1, 5).getValues()[0];
     const subscriptionJson = row[2];
     const settingsJson = row[3];
-    
+    const lastNotified = row[4]; // 最後に通知した日付
+
     if (!settingsJson) continue;
     const settings = JSON.parse(settingsJson);
 
     let shouldNotify = false;
     let title = "";
     let body = "";
+    let notifyType = "";
 
-    // 朝の通知チェック
-    if (settings.morningEnabled && settings.morningHour === currentHour && Math.abs(settings.morningMinute - currentMin) < 15) {
-      // 15分以内の誤差なら送る（重複送信防止はVercel側でも考慮するが、基本1回）
-      shouldNotify = true;
-      title = "おはよう！Soul Canvas";
-      body = "今日の気分を1分で記録して、最高のスタートを切ろうぜ。";
+    // 朝の通知チェック（1分だけ）
+    if (settings.morningEnabled && settings.morningHour === currentHour && settings.morningMinute === currentMin) {
+      // 最後に通知した日が今日でなければ送信
+      if (lastNotified !== todayStr + "-morning") {
+        shouldNotify = true;
+        title = "おはよう！Soul Canvas 🌅";
+        body = "今日の気分を1分で記録して、最高のスタートを切ろうぜ。";
+        notifyType = "morning";
+      }
     }
-    
-    // 夜の通知チェック
-    if (!shouldNotify && settings.eveningEnabled && settings.eveningHour === currentHour && Math.abs(settings.eveningMinute - currentMin) < 15) {
-      shouldNotify = true;
-      title = "お疲れさん。Soul Canvas";
-      body = "今日起きた良いことを3つ思い出して、魂を癒やそうか。";
+
+    // 夜の通知チェック（1分だけ）
+    if (!shouldNotify && settings.eveningEnabled && settings.eveningHour === currentHour && settings.eveningMinute === currentMin) {
+      if (lastNotified !== todayStr + "-evening") {
+        shouldNotify = true;
+        title = "お疲れさん。Soul Canvas 🌙";
+        body = "今日起きた良いことを3つ思い出して、魂を癒やそうか。";
+        notifyType = "evening";
+      }
     }
 
     if (shouldNotify) {
       triggerPush(subscriptionJson, title, body);
+      // 最後に通知した日時を記録
+      sheet.getRange(i + 1, 5).setValue(todayStr + "-" + notifyType);
     }
   }
 }
@@ -138,7 +149,7 @@ function handleSubscribe(params) {
   const endpoint = subObj.endpoint;
   const data = sheet.getDataRange().getValues();
   let rowIndex = -1;
-  
+
   for (let i = 1; i < data.length; i++) {
     const existingSub = JSON.parse(data[i][2]);
     if (existingSub.endpoint === endpoint) {
@@ -148,10 +159,11 @@ function handleSubscribe(params) {
   }
 
   const rowValues = [
-    new Date(), 
-    params.app_name, 
-    subscription, 
-    settings ? JSON.stringify(settings) : ""
+    new Date(),
+    params.app_name,
+    subscription,
+    settings ? JSON.stringify(settings) : "",
+    "" // 最後に通知した日時（空で初期化）
   ];
 
   if (rowIndex !== -1) {
@@ -199,7 +211,13 @@ function getOrCreateSheet(name) {
   let sheet = ss.getSheetByName(name);
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(["Timestamp", "App", "SubscriptionJSON", "SettingsJSON"]);
+    sheet.appendRow(["Timestamp", "App", "SubscriptionJSON", "SettingsJSON", "LastNotified"]);
+  } else {
+    // 既存シートの場合、5列目がないなら追加
+    const lastColumn = sheet.getLastColumn();
+    if (lastColumn < 5) {
+      sheet.getRange(1, 5).setValue("LastNotified");
+    }
   }
   return sheet;
 }
