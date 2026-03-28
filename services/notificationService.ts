@@ -275,6 +275,11 @@ export const scheduleNotifications = (
     return;
   }
 
+  // Web Push architecture: Server-side scheduling (GAS Cron) handles notifications.
+  // Local timers are disabled to prevent duplicate notifications.
+  // If you need local fallback, uncomment the code below.
+
+  /*
   // Schedule morning notification
   if (settings.morning.enabled) {
     scheduleSingleNotification(
@@ -296,6 +301,9 @@ export const scheduleNotifications = (
       onEveningClick
     );
   }
+  */
+
+  console.log('[Notifications] Web Push active. Notifications will be sent by server-side Cron.');
 };
 
 export const clearScheduledNotifications = (): void => {
