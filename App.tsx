@@ -6,13 +6,14 @@ import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import SettingsModal from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
+import { QuickModeForm } from './components/QuickModeForm';
 import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications, checkBackendConnection } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
   Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
   Trophy, TrendingUp, Sparkles, Flame, Image as ImageIcon,
   Wind, Cloud, X, Calendar, PenTool, BookOpen, Settings,
-  Music, Mic, Globe, Clock, Target, Mail, Plus
+  Music, Mic, Globe, Clock, Target, Mail, Plus, PauseCircle
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -49,6 +50,7 @@ const App: React.FC = () => {
   // Notification settings
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [quickMode, setQuickMode] = useState(false); // クイックモード
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
 
   // 通信状態のチェック
@@ -84,11 +86,23 @@ const App: React.FC = () => {
         try {
           const parsedStats = JSON.parse(savedStats);
           if (parsedStats && typeof parsedStats === 'object') {
+            // 月が変わったらスキップ回数をリセット
+            const currentMonth = new Date().getMonth();
+            const lastSkipMonth = parsedStats.skipDates && parsedStats.skipDates.length > 0
+              ? new Date(parsedStats.skipDates[parsedStats.skipDates.length - 1]).getMonth()
+              : null;
+
+            if (lastSkipMonth !== null && lastSkipMonth !== currentMonth) {
+              parsedStats.skipsThisMonth = 0;
+            }
+
             setStats({
               xp: parsedStats.xp || 0,
               streak: parsedStats.streak || 0,
               totalEntries: parsedStats.totalEntries || 0,
               lastEntryDate: parsedStats.lastEntryDate,
+              skipsThisMonth: parsedStats.skipsThisMonth || 0,
+              skipDates: parsedStats.skipDates || [],
               relationship: parsedStats.relationship,
               weeklyReportDate: parsedStats.weeklyReportDate,
               questCompletedCount: parsedStats.questCompletedCount
@@ -196,6 +210,42 @@ const App: React.FC = () => {
         saveDiaryToDrive(todayLog);
       }
     }
+  };
+
+  const handleSkipToday = () => {
+    if (stats.skipsThisMonth >= 3) {
+      alert('今月のスキップ回数（3回）を使い切りました。来月またスキップできます。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      '今日は休んでも、あなたの感謝の習慣は続いています。\n\nスキップしてもストリークは維持されます。よろしいですか？'
+    );
+
+    if (!confirmed) return;
+
+    // スキップ記録を追加
+    const newSkipDates = [...stats.skipDates, todayStr];
+    const newStats = {
+      ...stats,
+      skipsThisMonth: stats.skipsThisMonth + 1,
+      skipDates: newSkipDates
+    };
+    setStats(newStats);
+    localStorage.setItem('ai_diary_stats', JSON.stringify(newStats));
+
+    // スキップされた日として記録
+    const skipLog: DailyLog = {
+      date: todayStr,
+      skipped: true,
+      updatedAt: Date.now()
+    };
+    const newLogs = { ...logs, [todayStr]: skipLog };
+    setLogs(newLogs);
+    localStorage.setItem('ai_diary_logs', JSON.stringify(newLogs));
+
+    // 温かいメッセージ
+    alert('また明日、心を開いて戻ってこよう 💙\n\n今日の休息も、大切な自分への時間です。');
   };
 
   const saveDiaryToDrive = (log: DailyLog) => {
@@ -540,6 +590,21 @@ const App: React.FC = () => {
                 </button>
               </div>
 
+              {/* Skip Button */}
+              <button
+                onClick={handleSkipToday}
+                disabled={stats.skipsThisMonth >= 3}
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-full border transition-all duration-300 ${
+                  stats.skipsThisMonth >= 3
+                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-white/50 border-slate-100 text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600'
+                } shadow-sm backdrop-blur-sm`}
+                title={`今日は休む（残り${3 - stats.skipsThisMonth}回）`}
+              >
+                <PauseCircle size={14} />
+                <span className="text-[10px] font-black hidden sm:inline">休む</span>
+              </button>
+
               {/* Relationship Indicator */}
               <div className="flex items-center gap-1 bg-white/50 px-2 py-1.5 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm">
                 <span className="text-sm">{getRelationshipIcon(relationship.level)}</span>
@@ -597,7 +662,7 @@ const App: React.FC = () => {
         )}
 
         {activeTab === 'morning' && (
-          <MorningForm
+          <MorningFormWrapper
             entry={currentLog.morning}
             onSubmit={(e) => {
               const newLogs = { ...logs, [selectedDate]: { ...currentLog, morning: e, updatedAt: Date.now() } };
@@ -609,7 +674,7 @@ const App: React.FC = () => {
           />
         )}
         {activeTab === 'evening' && (
-          <EveningForm
+          <EveningFormWrapper
             entry={currentLog.evening}
             onSubmit={(e) => {
               const newLogs = { ...logs, [selectedDate]: { ...currentLog, evening: e, updatedAt: Date.now() } };
@@ -933,7 +998,24 @@ const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.Re
   </button>
 );
 
-const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) => void; feedback?: string; isLoading: boolean }> = ({ entry, onSubmit, feedback, isLoading }) => {
+const MorningFormWrapper: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) => void; feedback?: string; isLoading: boolean }> = (props) => {
+  const [quickMode, setQuickMode] = useState(false);
+
+  if (quickMode) {
+    return (
+      <QuickModeForm
+        type="morning"
+        entry={props.entry}
+        onSubmit={props.onSubmit}
+        onCancel={() => setQuickMode(false)}
+      />
+    );
+  }
+
+  return <MorningForm {...props} quickMode={quickMode} onToggleQuickMode={() => setQuickMode(!quickMode)} />;
+};
+
+const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) => void; feedback?: string; isLoading: boolean; quickMode?: boolean; onToggleQuickMode?: () => void }> = ({ entry, onSubmit, feedback, isLoading, quickMode = false, onToggleQuickMode }) => {
   const [gratitude, setGratitude] = useState<string[]>(() => {
     const saved = entry?.gratitude;
     if (saved && saved.length > 0) return saved;
@@ -966,6 +1048,16 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
           </div>
           <h2 className="text-2xl font-black text-slate-800 pt-2 tracking-tight">光を受け取る時間</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]">Morning Awakening</p>
+
+          {/* Quick Mode Toggle */}
+          {onToggleQuickMode && (
+            <button
+              onClick={onToggleQuickMode}
+              className="mt-3 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-full text-xs font-bold transition-colors flex items-center gap-2 mx-auto"
+            >
+              ⚡ クイックモード（1分）
+            </button>
+          )}
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); onSubmit({ gratitude: gratitude.filter(g => g.trim()), todayGoal: goal, stance }); }} className="space-y-8">
@@ -1037,7 +1129,24 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
   );
 };
 
-const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) => void; feedback?: string; isLoading: boolean }> = ({ entry, onSubmit, feedback, isLoading }) => {
+const EveningFormWrapper: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) => void; feedback?: string; isLoading: boolean }> = (props) => {
+  const [quickMode, setQuickMode] = useState(false);
+
+  if (quickMode) {
+    return (
+      <QuickModeForm
+        type="evening"
+        entry={props.entry}
+        onSubmit={props.onSubmit}
+        onCancel={() => setQuickMode(false)}
+      />
+    );
+  }
+
+  return <EveningForm {...props} quickMode={quickMode} onToggleQuickMode={() => setQuickMode(!quickMode)} />;
+};
+
+const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) => void; feedback?: string; isLoading: boolean; quickMode?: boolean; onToggleQuickMode?: () => void }> = ({ entry, onSubmit, feedback, isLoading, quickMode = false, onToggleQuickMode }) => {
   const [goodThings, setGoodThings] = useState<string[]>(() => {
     const saved = entry?.goodThings;
     if (saved && saved.length > 0) return saved;
@@ -1071,6 +1180,16 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
           </div>
           <h2 className="text-2xl font-black text-slate-800 pt-2 tracking-tight">自分を愛でる時間</h2>
           <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]">Evening Serenity</p>
+
+          {/* Quick Mode Toggle */}
+          {onToggleQuickMode && (
+            <button
+              onClick={onToggleQuickMode}
+              className="mt-3 px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-full text-xs font-bold transition-colors flex items-center gap-2 mx-auto"
+            >
+              ⚡ クイックモード（1分）
+            </button>
+          )}
         </div>
 
         <form onSubmit={(e) => { e.preventDefault(); onSubmit({ goodThings: goodThings.filter(g => g.trim()), kindness, insights, followUpQuestion: fq }); }} className="space-y-8">
@@ -1401,20 +1520,28 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
         transition-all duration-300 hover:scale-105 hover:shadow-lg
         ${isToday
           ? 'bg-gradient-to-br from-purple-100 to-indigo-100 ring-2 ring-purple-300'
-          : 'bg-white/40 hover:bg-white/80'
+          : log?.skipped
+            ? 'bg-gradient-to-br from-slate-100 to-slate-50 ring-1 ring-slate-200'
+            : 'bg-white/40 hover:bg-white/80'
         }
         ${!isCurrentMonth ? 'opacity-40 pointer-events-none' : ''}
       `}
     >
-      <span className={`text-sm md:text-lg font-bold ${isToday ? 'text-purple-700' : 'text-slate-700'}`}>
+      <span className={`text-sm md:text-lg font-bold ${isToday ? 'text-purple-700' : log?.skipped ? 'text-slate-400' : 'text-slate-700'}`}>
         {day}
       </span>
-      <div className="flex gap-1 mt-1">
-        {log?.morning && (
-          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-        )}
-        {log?.evening && (
-          <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
+      <div className="flex gap-1 mt-1 items-center">
+        {log?.skipped ? (
+          <span className="text-xs">💙</span>
+        ) : (
+          <>
+            {log?.morning && (
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+            )}
+            {log?.evening && (
+              <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
+            )}
+          </>
         )}
       </div>
     </button>
