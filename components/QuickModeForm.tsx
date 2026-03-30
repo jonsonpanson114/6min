@@ -12,6 +12,7 @@ interface QuickModeFormProps {
 export const QuickModeForm: React.FC<QuickModeFormProps> = ({ type, entry, onSubmit, onCancel }) => {
   const [gratitude, setGratitude] = useState('');
   const [secondQuestion, setSecondQuestion] = useState('');
+  const [mood, setMood] = useState<'😊' | '😌' | '🤔' | '💪' | '😴' | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // エントリーがある場合はプリフィル
@@ -36,13 +37,15 @@ export const QuickModeForm: React.FC<QuickModeFormProps> = ({ type, entry, onSub
     if (type === 'morning') {
       const entry: MorningEntry = {
         gratitude: [gratitude].filter(g => g.trim()),
-        todayGoal: secondQuestion
+        todayGoal: secondQuestion,
+        mood
       };
       await onSubmit(entry);
     } else {
       const entry: EveningEntry = {
         goodThings: [gratitude].filter(g => g.trim()),
-        kindness: secondQuestion
+        kindness: secondQuestion,
+        mood
       };
       await onSubmit(entry);
     }
@@ -87,6 +90,29 @@ export const QuickModeForm: React.FC<QuickModeFormProps> = ({ type, entry, onSub
               onChange={(e) => setGratitude(e.target.value)}
               autoFocus
             />
+          </div>
+
+          {/* Mood Check-in */}
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+              <span>{type === 'morning' ? '💚' : '💙'} 今の心の状態は？</span>
+            </label>
+            <div className="flex gap-2 justify-center">
+              {['😊', '😌', '🤔', '💪', '😴'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setMood(mood === emoji ? undefined : emoji as any)}
+                  className={`px-3 py-2 rounded-full text-xl transition-all ${
+                    mood === emoji
+                      ? type === 'morning' ? 'bg-amber-100 ring-2 ring-amber-400 scale-110' : 'bg-indigo-100 ring-2 ring-indigo-400 scale-110'
+                      : 'bg-white/50 hover:bg-white/80'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-4">

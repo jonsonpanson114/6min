@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings, PastSelfLetter, DailyQuest, WeeklyReport, MissionResult, Relationship, RelationshipLevel, QuestType, NotificationSettings } from './types';
+import { DailyLog, MorningEntry, EveningEntry, AIFeedback, UserStats, GROWTH_LEVELS, UserSettings, PastSelfLetter, DailyQuest, WeeklyReport, MissionResult, Relationship, RelationshipLevel, QuestType, NotificationSettings, GratitudeDetail } from './types';
 import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, generateVoiceAudio, generatePastSelfLetter, generateDailyQuest as generateDailyQuestAI, generateWeeklyReport, generateMissionResponse, calculateRelationship } from './services/geminiService';
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import SettingsModal from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { QuickModeForm } from './components/QuickModeForm';
+import { GratitudeDetailModal } from './components/GratitudeDetailModal';
 import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications, checkBackendConnection } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
@@ -43,6 +44,7 @@ const App: React.FC = () => {
   // 新規追加: 5つのエンゲージメント機能のState
   const [pastSelfLetter, setPastSelfLetter] = useState<PastSelfLetter | null>(null);
   const [dailyQuest, setDailyQuest] = useState<DailyQuest | null>(null);
+  const [questSkipped, setQuestSkipped] = useState(false);
   const [weeklyReport, setWeeklyReport] = useState<WeeklyReport | null>(null);
   const [missionResultModal, setMissionResultModal] = useState<{date: string, mission: string} | null>(null);
   const [missionResponse, setMissionResponse] = useState<{text: string, completed: boolean} | null>(null);
@@ -640,24 +642,37 @@ const App: React.FC = () => {
 
       {/* Main Content */}
       <main className="flex-1 max-w-2xl mx-auto w-full px-6 py-8 relative z-10 pb-32">
-        {/* B. デイリー・クエスト表示（Morningタブの上部） */}
+        {/* B. デイリー・ご招待表示（Morningタブの上部） */}
         {dailyQuest && !dailyQuest.isCompleted && activeTab === 'morning' && (
-          <div className="glass-panel p-6 rounded-[2rem] border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 mb-8 animate-in slide-in-from-top-4 duration-700">
+          <div className="glass-panel p-6 rounded-[2rem] border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 mb-8 animate-in slide-in-from-top-4 duration-700">
             <div className="flex items-center gap-2 mb-3">
-              <Target className="text-amber-500" size={20} />
-              <span className="text-xs font-black text-amber-600 uppercase tracking-widest">Today's Quest</span>
-              <span className="text-[10px] text-amber-400 font-medium ml-auto">+{dailyQuest.xpReward} XP</span>
+              <Sparkles className="text-emerald-500" size={20} />
+              <span className="text-xs font-black text-emerald-600 uppercase tracking-widest">今日のご招待</span>
             </div>
-            <p className="font-bold text-lg text-slate-800 mb-3 leading-relaxed">{dailyQuest.question}</p>
+            <p className="font-bold text-lg text-slate-800 mb-5 leading-relaxed">{dailyQuest.question}</p>
             {dailyQuest.hint && (
               <p className="text-sm text-slate-500 mb-5 italic">{dailyQuest.hint}</p>
             )}
-            <button
-              onClick={completeQuest}
-              className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-[1.5rem] font-bold text-base shadow-lg shadow-amber-200/50 hover:shadow-amber-300/70 hover:-translate-y-0.5 active:scale-95 transition-all"
-            >
-              クエストを完了する
-            </button>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={completeQuest}
+                className="py-3 bg-gradient-to-r from-emerald-400 to-teal-500 text-white rounded-[1.5rem] font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-95 transition-all"
+              >
+                やってみた
+              </button>
+              <button
+                onClick={() => setQuestSkipped(true)}
+                className="py-3 bg-white/60 text-slate-600 rounded-[1.5rem] font-bold text-sm hover:bg-white/80 transition-all"
+              >
+                後で書く
+              </button>
+              <button
+                onClick={() => setQuestSkipped(true)}
+                className="py-3 bg-slate-100 text-slate-500 rounded-[1.5rem] font-bold text-sm hover:bg-slate-200 transition-all"
+              >
+                スキップ
+              </button>
+            </div>
           </div>
         )}
 
@@ -665,7 +680,7 @@ const App: React.FC = () => {
           <MorningFormWrapper
             entry={currentLog.morning}
             onSubmit={(e) => {
-              const newLogs = { ...logs, [selectedDate]: { ...currentLog, morning: e, updatedAt: Date.now() } };
+              const newLogs = { ...logs, [selectedDate]: { ...currentLog, morning: e, mood: e.mood, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.morning ? 50 : 0);
               triggerAIFeedback(newLogs[todayStr], false);
             }}
@@ -677,7 +692,7 @@ const App: React.FC = () => {
           <EveningFormWrapper
             entry={currentLog.evening}
             onSubmit={(e) => {
-              const newLogs = { ...logs, [selectedDate]: { ...currentLog, evening: e, updatedAt: Date.now() } };
+              const newLogs = { ...logs, [selectedDate]: { ...currentLog, evening: e, mood: e.mood, updatedAt: Date.now() } };
               updateData(newLogs, !currentLog.evening ? 50 : 0);
               triggerAIFeedback(newLogs[todayStr], false);
             }}
@@ -746,54 +761,47 @@ const App: React.FC = () => {
 
             {/* Mission Section */}
             {currentLog.aiFeedback?.nextMission && (
-              <div className="mt-6 glass-panel p-6 rounded-3xl border-2 border-amber-200 bg-amber-50/30 animate-in zoom-in-95 duration-500">
-                <div className="flex items-center justify-between mb-3">
+              <div className="mt-6 glass-panel p-6 rounded-3xl border-2 border-violet-200 bg-gradient-to-br from-violet-50/50 to-purple-50/50 animate-in zoom-in-95 duration-500">
+                <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Zap size={20} className="text-amber-500 animate-pulse" />
-                    <span className="text-xs font-black text-amber-600 uppercase tracking-widest leading-none">Jinnai's Mission</span>
+                    <Sparkles size={20} className="text-violet-500" />
+                    <span className="text-xs font-black text-violet-600 uppercase tracking-widest leading-none">明日への問い</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        try {
-                          const audioData = await generateVoiceAudio(currentLog.aiFeedback!.eveningComment, settings.personality);
-                          // For now, use Web Speech API with styled parameters if raw audio is TBD
-                          const uttr = new SpeechSynthesisUtterance(currentLog.aiFeedback!.eveningComment);
-                          uttr.pitch = 0.8;
-                          uttr.rate = 0.9;
-                          uttr.lang = 'ja-JP';
-                          window.speechSynthesis.speak(uttr);
-                        } catch (e) {
-                          console.error("Voice error:", e);
-                        }
-                      }}
-                      className="p-2 bg-white rounded-full shadow-sm text-indigo-500 hover:scale-110 transition-transform"
-                      title="陣内の声を聴く"
-                    >
-                      <Music size={16} />
-                    </button>
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                      <input
-                        type="checkbox"
-                        className="w-5 h-5 rounded-md border-amber-300 text-amber-500 focus:ring-amber-200"
-                        checked={currentLog.isMissionCompleted}
-                        onChange={(e) => {
-                          const newLogs = {
-                            ...logs,
-                            [selectedDate]: { ...currentLog, isMissionCompleted: e.target.checked, updatedAt: Date.now() }
-                          };
-                          updateData(newLogs, e.target.checked ? 150 : -150); // Mission bonus
-                        }}
-                      />
-                      <span className="text-xs font-bold text-slate-500 group-hover:text-amber-600 transition-colors">達成！</span>
-                    </label>
-                  </div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const uttr = new SpeechSynthesisUtterance(currentLog.aiFeedback!.eveningComment);
+                        uttr.pitch = 0.8;
+                        uttr.rate = 0.9;
+                        uttr.lang = 'ja-JP';
+                        window.speechSynthesis.speak(uttr);
+                      } catch (e) {
+                        console.error("Voice error:", e);
+                      }
+                    }}
+                    className="p-2 bg-white rounded-full shadow-sm text-indigo-500 hover:scale-110 transition-transform"
+                    title="声を聴く"
+                  >
+                    <Music size={16} />
+                  </button>
                 </div>
-                <p className="text-slate-800 font-black text-lg leading-snug">
-                  「{currentLog.aiFeedback?.nextMission}」
+                <p className="text-slate-800 font-black text-lg leading-snug mb-4">
+                  {currentLog.aiFeedback?.nextMission}
                 </p>
-                <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-                  {currentLog.isMissionCompleted ? "✨ ミッション達成！ +150 XP" : "明日これをこなせば XP を弾んでやるぜ。"}
+                <div className="bg-white/60 p-4 rounded-2xl border border-violet-100">
+                  <textarea
+                    placeholder="明日、問いかけたいことを自由に書いて..."
+                    className="w-full bg-transparent outline-none text-slate-700 placeholder:text-slate-400 resize-none text-sm leading-relaxed"
+                    rows={3}
+                    onChange={(e) => {
+                      // 自動保存（localStorage）
+                      const key = `mission_reflection_${selectedDate}`;
+                      localStorage.setItem(key, e.target.value);
+                    }}
+                  />
+                </div>
+                <p className="mt-3 text-[10px] text-violet-400 font-medium text-center">
+                  明日の朝、この問いを振り返ってみよう ✨
                 </p>
               </div>
             )}
@@ -1021,8 +1029,11 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
     if (saved && saved.length > 0) return saved;
     return [''];  // デフォルトは1つ（空）
   });
+  const [gratitudeDetails, setGratitudeDetails] = useState<GratitudeDetail[]>(entry?.gratitudeDetails || []);
+  const [detailModalIndex, setDetailModalIndex] = useState<number | null>(null);
   const [goal, setGoal] = useState(entry?.todayGoal || '');
   const [stance, setStance] = useState(entry?.stance || '');
+  const [mood, setMood] = useState<'😊' | '😌' | '🤔' | '💪' | '😴' | undefined>(undefined);
 
   const addGratitude = () => {
     if (gratitude.length < 5) {
@@ -1060,25 +1071,58 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
           )}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ gratitude: gratitude.filter(g => g.trim()), todayGoal: goal, stance }); }} className="space-y-8">
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ gratitude: gratitude.filter(g => g.trim()), gratitudeDetails, todayGoal: goal, stance, mood }); }} className="space-y-8">
+          {/* Mood Check-in */}
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+              <span>💚 今の心の状態は？</span>
+            </label>
+            <div className="flex gap-2 justify-center">
+              {['😊', '😌', '🤔', '💪', '😴'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setMood(mood === emoji ? undefined : emoji as any)}
+                  className={`px-3 py-2 rounded-full text-xl transition-all ${
+                    mood === emoji
+                      ? 'bg-rose-100 ring-2 ring-rose-400 scale-110'
+                      : 'bg-white/50 hover:bg-white/80'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <Heart size={14} className="text-rose-400" /> 今、ここにある感謝
+              <Heart size={14} className="text-rose-400" /> 小さなことの中に見つけた光は？
             </label>
             {gratitude.map((val, idx) => (
               <div key={idx} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="感謝を見つけた..."
+                  placeholder="日常の中に隠れている小さな感謝..."
                   className="flex-1 px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm"
                   value={val}
                   onChange={(e) => { const newG = [...gratitude]; newG[idx] = e.target.value; setGratitude(newG); }}
                 />
+                {val.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailModalIndex(idx)}
+                    className="px-3 py-4 rounded-2xl bg-gradient-to-br from-rose-100 to-pink-100 hover:from-rose-200 hover:to-pink-200 text-rose-500 font-black transition-all"
+                    title="深める"
+                  >
+                    <Heart size={16} />
+                  </button>
+                )}
                 {gratitude.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeGratitude(idx)}
-                    className="px-3 py-4 rounded-2xl bg-rose-100 hover:bg-rose-200 text-rose-500 font-black transition-colors"
+                    className="px-3 py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black transition-colors"
                   >
                     ✕
                   </button>
@@ -1091,21 +1135,21 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
                 onClick={addGratitude}
                 className="w-full px-6 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-sm transition-colors flex items-center justify-center gap-2"
               >
-                <Plus size={16} /> もう一つの感謝
+                <Plus size={16} /> もう一つの光
               </button>
             )}
           </div>
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <TrendingUp size={14} className="text-emerald-400" /> 今日の十分な一歩
+              <TrendingUp size={14} className="text-emerald-400" /> 今日、どうありたい？
             </label>
-            <input type="text" placeholder="何ができたら最高ですか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={goal} onChange={(e) => setGoal(e.target.value)} />
+            <input type="text" placeholder="どんな一日を過ごしてみたい？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={goal} onChange={(e) => setGoal(e.target.value)} />
           </div>
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <Zap size={14} className="text-amber-400" /> 今日の魂のスタンス
+              <Zap size={14} className="text-amber-400" /> 今、心に浮かんでいるものは？
             </label>
-            <input type="text" placeholder="どんな自分で在りたいですか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={stance} onChange={(e) => setStance(e.target.value)} />
+            <input type="text" placeholder="今、ここにある気づきは？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={stance} onChange={(e) => setStance(e.target.value)} />
           </div>
           <button type="submit" disabled={isLoading} className="group w-full py-5 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-orange-200/50 hover:shadow-orange-300/60 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
             {isLoading ? <Loader2 className="animate-spin" size={24} /> : <Sparkles className="group-hover:animate-spin-slow" size={24} />}
@@ -1124,6 +1168,21 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
             <p className="text-slate-700 leading-relaxed font-medium text-lg italic font-serif">"{feedback}"</p>
           </div>
         </div>
+      )}
+
+      {/* Gratitude Detail Modal */}
+      {detailModalIndex !== null && (
+        <GratitudeDetailModal
+          isOpen={detailModalIndex !== null}
+          gratitudeText={gratitude[detailModalIndex]}
+          existingDetail={gratitudeDetails[detailModalIndex]}
+          onClose={() => setDetailModalIndex(null)}
+          onSave={(detail: GratitudeDetail) => {
+            const newDetails = [...gratitudeDetails];
+            newDetails[detailModalIndex] = detail;
+            setGratitudeDetails(newDetails);
+          }}
+        />
       )}
     </div>
   );
@@ -1152,9 +1211,12 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
     if (saved && saved.length > 0) return saved;
     return [''];  // デフォルトは1つ（空）
   });
+  const [goodThingsDetails, setGoodThingsDetails] = useState<GratitudeDetail[]>(entry?.goodThingsDetails || []);
+  const [detailModalIndex, setDetailModalIndex] = useState<number | null>(null);
   const [kindness, setKindness] = useState(entry?.kindness || '');
   const [insights, setInsights] = useState(entry?.insights || '');
   const [fq, setFq] = useState(entry?.followUpQuestion || '');
+  const [mood, setMood] = useState<'😊' | '😌' | '🤔' | '💪' | '😴' | undefined>(undefined);
 
   const addGoodThing = () => {
     if (goodThings.length < 5) {
@@ -1192,25 +1254,58 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
           )}
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ goodThings: goodThings.filter(g => g.trim()), kindness, insights, followUpQuestion: fq }); }} className="space-y-8">
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ goodThings: goodThings.filter(g => g.trim()), goodThingsDetails, kindness, insights, followUpQuestion: fq, mood }); }} className="space-y-8">
+          {/* Mood Check-in */}
+          <div className="space-y-3">
+            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+              <span>💙 今の心の状態は？</span>
+            </label>
+            <div className="flex gap-2 justify-center">
+              {['😊', '😌', '🤔', '💪', '😴'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => setMood(mood === emoji ? undefined : emoji as any)}
+                  className={`px-3 py-2 rounded-full text-xl transition-all ${
+                    mood === emoji
+                      ? 'bg-indigo-100 ring-2 ring-indigo-400 scale-110'
+                      : 'bg-white/50 hover:bg-white/80'
+                  }`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <Star size={14} className="text-amber-400" /> 心に灯った小さな光
+              <Star size={14} className="text-amber-400" /> 今日、あなたを照らしていた瞬間は？
             </label>
             {goodThings.map((val, idx) => (
               <div key={idx} className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="感謝を見つけた..."
+                  placeholder="今日、心を動かされた..."
                   className="flex-1 px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm"
                   value={val}
                   onChange={(e) => { const newG = [...goodThings]; newG[idx] = e.target.value; setGoodThings(newG); }}
                 />
+                {val.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailModalIndex(idx)}
+                    className="px-3 py-4 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 hover:from-indigo-200 hover:to-purple-200 text-indigo-500 font-black transition-all"
+                    title="深める"
+                  >
+                    <Heart size={16} />
+                  </button>
+                )}
                 {goodThings.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeGoodThing(idx)}
-                    className="px-3 py-4 rounded-2xl bg-rose-100 hover:bg-rose-200 text-rose-500 font-black transition-colors"
+                    className="px-3 py-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-500 font-black transition-colors"
                   >
                     ✕
                   </button>
@@ -1230,29 +1325,29 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-                <Smile size={14} className="text-rose-400" /> 誰かに届けた優しさ
+                <Smile size={14} className="text-rose-400" /> 誰との時間が、あなたを育てたか？
               </label>
               <button type="button" onClick={() => setKindness('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
             </div>
-            <input type="text" placeholder="どんな光を分け合いましたか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={kindness} onChange={(e) => setKindness(e.target.value)} />
+            <input type="text" placeholder="誰との時間があなたを豊かにした？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={kindness} onChange={(e) => setKindness(e.target.value)} />
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-                <Zap size={14} className="text-indigo-400" /> 魂が震えた気づき
+                <Zap size={14} className="text-indigo-400" /> どんな自分に、心からありがとうを？
               </label>
               <button type="button" onClick={() => setInsights('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
             </div>
-            <input type="text" placeholder="自分への新発見を教えてください" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={insights} onChange={(e) => setInsights(e.target.value)} />
+            <input type="text" placeholder="今日の自分を讃える言葉は？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={insights} onChange={(e) => setInsights(e.target.value)} />
           </div>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-                <MessageCircle size={14} className="text-indigo-400" /> 愛のフォローアップ
+                <MessageCircle size={14} className="text-indigo-400" /> 明日への問い
               </label>
               <button type="button" onClick={() => setFq('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
             </div>
-            <input type="text" placeholder="誰に問いかけをしましたか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={fq} onChange={(e) => setFq(e.target.value)} />
+            <input type="text" placeholder="明日、問いかけたいことは？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={fq} onChange={(e) => setFq(e.target.value)} />
           </div>
           <button type="submit" disabled={isLoading} className="group w-full py-5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-200/50 hover:shadow-indigo-300/60 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
             {isLoading ? <Loader2 className="animate-spin" size={24} /> : <CheckCircle2 className="group-hover:scale-110 transition-transform" size={24} />}
@@ -1271,6 +1366,21 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
             <p className="text-slate-700 leading-relaxed font-medium text-lg italic font-serif">"{feedback}"</p>
           </div>
         </div>
+      )}
+
+      {/* Gratitude Detail Modal */}
+      {detailModalIndex !== null && (
+        <GratitudeDetailModal
+          isOpen={detailModalIndex !== null}
+          gratitudeText={goodThings[detailModalIndex]}
+          existingDetail={goodThingsDetails[detailModalIndex]}
+          onClose={() => setDetailModalIndex(null)}
+          onSave={(detail: GratitudeDetail) => {
+            const newDetails = [...goodThingsDetails];
+            newDetails[detailModalIndex] = detail;
+            setGoodThingsDetails(newDetails);
+          }}
+        />
       )}
     </div>
   );
@@ -1430,13 +1540,13 @@ const LogDetailModal: React.FC<{ log: DailyLog; onClose: () => void }> = ({ log,
                   </div>
                 )}
 
-                {/* Mission Section in Modal */}
+                {/* Question Section in Modal */}
                 {log.aiFeedback.nextMission && (
-                  <div className="bg-amber-50/50 p-6 rounded-[2.5rem] border border-amber-100 space-y-3 relative overflow-hidden">
+                  <div className="bg-violet-50/50 p-6 rounded-[2.5rem] border border-violet-100 space-y-3 relative overflow-hidden">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Zap size={18} className="text-amber-500" />
-                        <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Mission Archive</span>
+                        <Sparkles size={18} className="text-violet-500" />
+                        <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">明日への問い</span>
                       </div>
                       <button
                         onClick={() => {
@@ -1451,8 +1561,7 @@ const LogDetailModal: React.FC<{ log: DailyLog; onClose: () => void }> = ({ log,
                         <Music size={14} />
                       </button>
                     </div>
-                    <p className="text-slate-800 font-bold leading-snug">「{log.aiFeedback.nextMission}」</p>
-                    {log.isMissionCompleted && <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-100 rounded text-[10px] font-black text-emerald-700 uppercase">Completed</div>}
+                    <p className="text-slate-800 font-bold leading-snug">{log.aiFeedback.nextMission}</p>
                   </div>
                 )}
               </div>
@@ -1535,10 +1644,13 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
           <span className="text-xs">💙</span>
         ) : (
           <>
-            {log?.morning && (
+            {log?.mood && (
+              <span className="text-xs">{log.mood}</span>
+            )}
+            {log?.morning && !log?.mood && (
               <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
             )}
-            {log?.evening && (
+            {log?.evening && !log?.mood && (
               <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.6)]" />
             )}
           </>
@@ -1560,11 +1672,48 @@ interface CalendarViewProps {
 
 const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDate, weeklyReport, onSelectDate, onSelectLog, onNavigateToTab }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'month' | 'garden'>('month');
 
   const formatMonthYear = (date: Date): string => {
     const year = date.getFullYear();
     const month = date.getMonth() + 1;
     return `${year}年 ${month}月`;
+  };
+
+  // 週間ビュー用の日付取得（月曜日始まり）
+  const getWeekDates = (baseDate: Date): Date[] => {
+    const date = new Date(baseDate);
+    const day = date.getDay();
+    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // 月曜日を週の始めに
+    const monday = new Date(date.setDate(diff));
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      week.push(d);
+    }
+    return week;
+  };
+
+  // 植物の成長段階を取得
+  const getPlantStage = (log: DailyLog): 'seed' | 'sprout' | 'flower' | 'tree' => {
+    const entryCount = (log.morning ? 1 : 0) + (log.evening ? 1 : 0);
+    const gratitudeCount = (log.morning?.gratitude?.length || 0) + (log.evening?.goodThings?.length || 0);
+
+    if (entryCount === 2 && gratitudeCount >= 5) return 'tree';
+    if (entryCount === 2) return 'flower';
+    if (entryCount >= 1) return 'sprout';
+    return 'seed';
+  };
+
+  const getPlantEmoji = (stage: string): string => {
+    switch (stage) {
+      case 'seed': return '🌱';
+      case 'sprout': return '🌿';
+      case 'flower': return '🌸';
+      case 'tree': return '🌳';
+      default: return '🌱';
+    }
   };
 
   const goToPreviousMonth = () => {
@@ -1671,43 +1820,165 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDat
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3 px-2">
-        <Calendar size={24} className="text-rose-400" />
-        <span className="bg-gradient-to-r from-slate-700 to-slate-500 bg-clip-text text-transparent">カレンダー</span>
-      </h2>
-      <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
-        {/* Calendar header */}
-        <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between px-2">
+        <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+          {viewMode === 'garden' ? (
+            <>
+              <Sparkles size={24} className="text-emerald-400" />
+              <span className="bg-gradient-to-r from-emerald-600 to-teal-500 bg-clip-text text-transparent">感謝の庭</span>
+            </>
+          ) : (
+            <>
+              <Calendar size={24} className="text-rose-400" />
+              <span className="bg-gradient-to-r from-slate-700 to-slate-500 bg-clip-text text-transparent">カレンダー</span>
+            </>
+          )}
+        </h2>
+        <div className="flex gap-2">
           <button
-            onClick={goToPreviousMonth}
-            className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+            onClick={() => setViewMode(viewMode === 'month' ? 'garden' : 'month')}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              viewMode === 'month'
+                ? 'bg-rose-100 text-rose-600'
+                : 'bg-emerald-100 text-emerald-600'
+            }`}
           >
-            <ChevronLeft size={20} />
+            {viewMode === 'month' ? '🌸 庭を見る' : '📅 カレンダー'}
           </button>
-          <div className="flex items-center gap-4">
-            <h3 className="text-xl md:text-2xl font-black text-slate-800">
-              {formatMonthYear(currentMonth)}
-            </h3>
-            <button
-              onClick={goToToday}
-              className="px-3 py-1 md:px-4 md:py-2 text-xs font-bold uppercase tracking-widest bg-purple-100 text-purple-600 rounded-full hover:bg-purple-200 transition-all"
-            >
-              今日
-            </button>
-          </div>
-          <button
-            onClick={goToNextMonth}
-            className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1 md:gap-3">
-          {renderCalendar()}
         </div>
       </div>
+
+      {/* 週間庭ビュー */}
+      {viewMode === 'garden' && (
+        <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
+          <div className="flex items-center justify-between mb-6">
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.setDate(currentMonth.getDate() - 7)))}
+              className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <h3 className="text-lg md:text-xl font-black text-slate-800">
+              今週の庭
+            </h3>
+            <button
+              onClick={() => setCurrentMonth(new Date(currentMonth.setDate(currentMonth.getDate() + 7)))}
+              className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          {/* 週間植物グリッド */}
+          <div className="grid grid-cols-7 gap-3 mb-6">
+            {getWeekDates(currentMonth).map((date, idx) => {
+              const dateStr = formatDateKey(date.getFullYear(), date.getMonth(), date.getDate());
+              const log = logs[dateStr];
+              const stage = log ? getPlantStage(log) : null;
+              const plantEmoji = stage ? getPlantEmoji(stage) : '';
+              const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
+
+              return (
+                <div key={idx} className="flex flex-col items-center">
+                  <span className={`text-xs font-bold mb-2 ${
+                    idx === 6 ? 'text-blue-400' : 'text-slate-400'
+                  }`}>
+                    {weekdays[idx]}
+                  </span>
+                  <button
+                    onClick={() => handleDateClick(dateStr)}
+                    className={`
+                      aspect-square w-full rounded-2xl flex flex-col items-center justify-center relative
+                      transition-all duration-300 hover:scale-105 hover:shadow-lg
+                      ${isToday(dateStr, todayStr)
+                        ? 'bg-gradient-to-br from-emerald-100 to-teal-100 ring-2 ring-emerald-300'
+                        : log
+                          ? 'bg-gradient-to-br from-amber-50 to-rose-50 hover:from-amber-100 hover:to-rose-100'
+                          : 'bg-white/40'
+                      }
+                    `}
+                  >
+                    <span className={`text-sm md:text-base font-bold ${
+                      isToday(dateStr, todayStr) ? 'text-emerald-700' : 'text-slate-600'
+                    }`}>
+                      {date.getDate()}
+                    </span>
+                    {log?.skipped ? (
+                      <span className="text-lg mt-1">💙</span>
+                    ) : log?.mood ? (
+                      <span className="text-xl mt-1">{log.mood}</span>
+                    ) : plantEmoji ? (
+                      <span className="text-2xl mt-1 filter drop-shadow-md">{plantEmoji}</span>
+                    ) : log?.morning || log?.evening ? (
+                      <div className="flex gap-0.5 mt-1">
+                        {log?.morning && <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                        {log?.evening && <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" />}
+                      </div>
+                    ) : null}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 成長段階の説明 */}
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-500 flex-wrap">
+            <div className="flex items-center gap-1">
+              <span>🌱</span>
+              <span>種</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>🌿</span>
+              <span>芽</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>🌸</span>
+              <span>花</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span>🌳</span>
+              <span>大樹</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 月間カレンダービュー */}
+      {viewMode === 'month' && (
+        <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
+          {/* Calendar header */}
+          <div className="flex items-center justify-between mb-8">
+            <button
+              onClick={goToPreviousMonth}
+              className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="flex items-center gap-4">
+              <h3 className="text-xl md:text-2xl font-black text-slate-800">
+                {formatMonthYear(currentMonth)}
+              </h3>
+              <button
+                onClick={goToToday}
+                className="px-3 py-1 md:px-4 md:py-2 text-xs font-bold uppercase tracking-widest bg-purple-100 text-purple-600 rounded-full hover:bg-purple-200 transition-all"
+              >
+                今日
+              </button>
+            </div>
+            <button
+              onClick={goToNextMonth}
+              className="p-2 md:p-3 rounded-full bg-white/50 hover:bg-white/80 transition-all hover:scale-110"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 gap-1 md:gap-3">
+            {renderCalendar()}
+          </div>
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-6 text-sm text-slate-500">

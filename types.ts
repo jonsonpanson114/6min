@@ -1,15 +1,26 @@
 
+// 感謝の深掘り詳細
+export interface GratitudeDetail {
+  text: string;           // 感謝のテキスト
+  why?: string;           // なぜそれが感謝なのか？
+  how?: string;           // それがあなたをどうしたか？
+}
+
 export interface MorningEntry {
   gratitude: string[];  // 1-5個（柔軟）
+  gratitudeDetails?: GratitudeDetail[]; // 感謝の深掘り（オプション）
   todayGoal: string;
   stance?: string;      // オプション
+  mood?: MoodType;      // ムードチェック
 }
 
 export interface EveningEntry {
   goodThings: string[];  // 1-5個（柔軟）
+  goodThingsDetails?: GratitudeDetail[]; // 感謝の深掘り（オプション）
   kindness?: string;      // オプション
   insights?: string;      // オプション
   followUpQuestion?: string; // オプション
+  mood?: MoodType;        // ムードチェック
 }
 
 export interface AIFeedback {
