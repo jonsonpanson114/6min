@@ -8,6 +8,7 @@ import SettingsModal from './components/SettingsModal';
 import { StatsModal } from './components/StatsModal';
 import { QuickModeForm } from './components/QuickModeForm';
 import { GratitudeDetailModal } from './components/GratitudeDetailModal';
+import { QuickCaptureModal } from './components/QuickCaptureModal';
 import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications, checkBackendConnection } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
@@ -54,6 +55,7 @@ const App: React.FC = () => {
   const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [quickMode, setQuickMode] = useState(false); // クイックモード
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
+  const [quickCaptureOpen, setQuickCaptureOpen] = useState(false); // クイックキャプチャモーダル
 
   // 通信状態のチェック
   useEffect(() => {
@@ -181,6 +183,35 @@ const App: React.FC = () => {
       clearScheduledNotifications();
     };
   }, [settings.notifications.enabled]);
+
+  // URLパラメータチェック（クイックキャプチャ用）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('capture') === 'true') {
+      setQuickCaptureOpen(true);
+      // URLからパラメータを削除
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  // クイックキャプチャの保存
+  const handleQuickCapture = (text: string) => {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+
+    // 既存のキャプチャを読み込み
+    const saved = localStorage.getItem('quick_captures');
+    const captures: Array<{ text: string; timestamp: number; date: string }> = saved ? JSON.parse(saved) : [];
+
+    // 新しいキャプチャを追加
+    captures.push({
+      text,
+      timestamp: Date.now(),
+      date: dateStr
+    });
+
+    localStorage.setItem('quick_captures', JSON.stringify(captures));
+  };
 
   const currentLevel = useMemo(() => {
     return [...GROWTH_LEVELS].reverse().find(l => stats.xp >= l.minXp) || GROWTH_LEVELS[0];
@@ -932,6 +963,13 @@ const App: React.FC = () => {
         />
       )}
 
+      {/* Quick Capture Modal */}
+      <QuickCaptureModal
+        isOpen={quickCaptureOpen}
+        onClose={() => setQuickCaptureOpen(false)}
+        onSave={handleQuickCapture}
+      />
+
       {/* Detail Modal */}
       {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
 
@@ -1218,6 +1256,26 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
   const [fq, setFq] = useState(entry?.followUpQuestion || '');
   const [mood, setMood] = useState<'😊' | '😌' | '🤔' | '💪' | '😴' | undefined>(undefined);
 
+  // 日中のクイックキャプチャを読み込み
+  const [quickCaptures, setQuickCaptures] = useState<Array<{ text: string; timestamp: number }>>([]);
+
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const saved = localStorage.getItem('quick_captures');
+    if (saved) {
+      try {
+        const allCaptures: Array<{ text: string; timestamp: number; date: string }> = JSON.parse(saved);
+        // 今日のキャプチャのみを抽出
+        const todayCaptures = allCaptures
+          .filter(c => c.date === todayStr)
+          .map(c => ({ text: c.text, timestamp: c.timestamp }));
+        setQuickCaptures(todayCaptures);
+      } catch (e) {
+        console.error("Failed to load quick captures", e);
+      }
+    }
+  }, []);
+
   const addGoodThing = () => {
     if (goodThings.length < 5) {
       setGoodThings([...goodThings, '']);
@@ -1277,6 +1335,44 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
               ))}
             </div>
           </div>
+
+          {/* 日中のクイックキャプチャ */}
+          {quickCaptures.length > 0 && (
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-black text-indigo-600 uppercase tracking-widest">
+                <Sparkles size={14} />
+                <span>日中に捉えた感謝</span>
+              </div>
+              <div className="space-y-2">
+                {quickCaptures.map((capture, idx) => (
+                  <div
+                    key={idx}
+                    className="flex gap-3 items-center bg-white/60 p-3 rounded-xl"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                    <p className="text-sm text-slate-700 flex-1">{capture.text}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newG = [...goodThings];
+                        // 最初の空欄を見つけて埋める
+                        const emptyIdx = newG.findIndex(g => !g.trim());
+                        if (emptyIdx !== -1) {
+                          newG[emptyIdx] = capture.text;
+                          setGoodThings(newG);
+                        } else if (newG.length < 5) {
+                          setGoodThings([...newG, capture.text]);
+                        }
+                      }}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                    >
+                      追加
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">

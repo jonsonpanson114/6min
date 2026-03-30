@@ -146,3 +146,10 @@ export interface UserStats {
   weeklyReportDate?: string;       // C用（最後に生成したレポートの日）
   questCompletedCount?: number;    // B用（週のクエスト完了数）
 }
+
+// F. 日中のクイックキャプチャ
+export interface PendingGratitude {
+  text: string;              // キャプチャした感謝
+  timestamp: number;         // タイムスタンプ
+  date: string;              // 日付（YYYY-MM-DD）
+}
