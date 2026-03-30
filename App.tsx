@@ -5,19 +5,20 @@ import { generateDailyFeedback, generateSouvenirImage, generateParallelStory, ge
 import { MusicService } from './services/musicService';
 import { InterrogationRoom } from './components/InterrogationRoom';
 import SettingsModal from './components/SettingsModal';
+import { StatsModal } from './components/StatsModal';
 import { scheduleNotifications, clearScheduledNotifications, getDefaultNotificationSettings, subscribeToPushNotifications, checkBackendConnection } from './services/notificationService';
 import {
   Sun, Moon, History, CheckCircle2, Heart, Smile, Star,
   Coffee, Zap, MessageCircle, Loader2, ChevronRight, ChevronLeft,
   Trophy, TrendingUp, Sparkles, Flame, Image as ImageIcon,
   Wind, Cloud, X, Calendar, PenTool, BookOpen, Settings,
-  Music, Mic, Globe, Clock, Target, Mail
+  Music, Mic, Globe, Clock, Target, Mail, Plus
 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'morning' | 'evening' | 'calendar' | 'interrogation' | 'quest'>('morning');
   const [logs, setLogs] = useState<Record<string, DailyLog>>({});
-  const [stats, setStats] = useState<UserStats>({ xp: 0, streak: 0, totalEntries: 0 });
+  const [stats, setStats] = useState<UserStats>({ xp: 0, streak: 0, totalEntries: 0, skipsThisMonth: 0, skipDates: [] });
   const [loading, setLoading] = useState(false);
   const [todayStr] = useState(() => {
     const d = new Date();
@@ -47,6 +48,7 @@ const App: React.FC = () => {
 
   // Notification settings
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
   const [isConnected, setIsConnected] = useState<boolean | null>(null);
 
   // 通信状態のチェック
@@ -557,24 +559,16 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between items-center px-1">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl filter drop-shadow-md transform hover:scale-125 transition-transform cursor-default">{currentLevel.icon}</span>
-                <span className={`text-xs font-black uppercase tracking-widest ${currentLevel.color}`}>
-                  {currentLevel.name} <span className="opacity-60 text-slate-400">LV.{currentLevel.level}</span>
-                </span>
-              </div>
-              <span className="text-xs font-black text-slate-400">{stats.xp} <span className="text-[10px]">XP</span></span>
-            </div>
-            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden shadow-inner">
-              <div
-                className="h-full bg-gradient-to-r from-rose-400 via-indigo-500 to-emerald-400 rounded-full transition-all duration-1000 ease-out relative"
-                style={{ width: `${progressToNext}%` }}
-              >
-                <div className="absolute inset-0 bg-white/30 w-full animate-pulse"></div>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            {/* Stats Button */}
+            <button
+              onClick={() => setStatsModalOpen(true)}
+              className="flex items-center gap-2 bg-white/50 px-3 py-2 rounded-full border border-slate-100 shadow-sm backdrop-blur-sm hover:bg-white/70 transition-all"
+              title="統計を確認"
+            >
+              <Trophy size={16} className="text-amber-500" />
+              <span className="text-xs font-black text-slate-600">統計</span>
+            </button>
           </div>
         </div>
       </header>
@@ -868,6 +862,53 @@ const App: React.FC = () => {
       {/* Detail Modal */}
       {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
 
+      {/* Weekly Report */}
+      {weeklyReport && (
+        <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
+          <div className="space-y-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <Calendar className="text-indigo-500" size={32} />
+              </div>
+              <h3 className="text-xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
+              <p className="text-slate-400 text-xs">{weeklyReport.startDate?.replace(/-/g, '/')} 〜 {weeklyReport.endDate?.replace(/-/g, '/')}</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
+              <p className="text-slate-700 leading-relaxed text-sm font-medium">{weeklyReport.insights}</p>
+            </div>
+
+            {weeklyReport.patterns.length > 0 && (
+              <div>
+                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Your Patterns</p>
+                <div className="space-y-3">
+                  {weeklyReport.patterns.map((p, i) => (
+                    <div key={i} className="flex items-center gap-3 text-slate-600 bg-white/60 p-4 rounded-xl border border-slate-100">
+                      <div className="w-2 h-2 bg-indigo-400 rounded-full shrink-0" />
+                      <span className="text-sm">{p}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-3 py-3 bg-slate-50 rounded-2xl">
+              <span className="text-3xl">
+                {weeklyReport.mood === 'great' ? '🌟' : weeklyReport.mood === 'good' ? '😊' : weeklyReport.mood === 'neutral' ? '😐' : '💪'}
+              </span>
+              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">This Week's Mood</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Modal */}
+      <StatsModal
+        stats={stats}
+        isOpen={statsModalOpen}
+        onClose={() => setStatsModalOpen(false)}
+      />
+
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 glass-nav px-6 pb-6 pt-4 flex justify-around items-end md:static md:bg-transparent md:border-none md:max-w-xl md:mx-auto md:pb-12 md:pt-0 z-50">
         <NavButton active={activeTab === 'morning'} onClick={() => setActiveTab('morning')} icon={<Sun size={24} />} label="MORNING" color="text-amber-500" />
@@ -893,9 +934,26 @@ const NavButton: React.FC<{ active: boolean; onClick: () => void; icon: React.Re
 );
 
 const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) => void; feedback?: string; isLoading: boolean }> = ({ entry, onSubmit, feedback, isLoading }) => {
-  const [gratitude, setGratitude] = useState(entry?.gratitude || ['', '', '']);
+  const [gratitude, setGratitude] = useState<string[]>(() => {
+    const saved = entry?.gratitude;
+    if (saved && saved.length > 0) return saved;
+    return [''];  // デフォルトは1つ（空）
+  });
   const [goal, setGoal] = useState(entry?.todayGoal || '');
   const [stance, setStance] = useState(entry?.stance || '');
+
+  const addGratitude = () => {
+    if (gratitude.length < 5) {
+      setGratitude([...gratitude, '']);
+    }
+  };
+
+  const removeGratitude = (idx: number) => {
+    if (gratitude.length > 1) {
+      const newG = gratitude.filter((_, i) => i !== idx);
+      setGratitude(newG);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-6 fade-in duration-700">
@@ -916,15 +974,34 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
               <Heart size={14} className="text-rose-400" /> 今、ここにある感謝
             </label>
             {gratitude.map((val, idx) => (
-              <input
-                key={idx}
-                type="text"
-                placeholder={`感謝の種 ${idx + 1}`}
-                className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm"
-                value={val}
-                onChange={(e) => { const newG = [...gratitude]; newG[idx] = e.target.value; setGratitude(newG); }}
-              />
+              <div key={idx} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="感謝を見つけた..."
+                  className="flex-1 px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm"
+                  value={val}
+                  onChange={(e) => { const newG = [...gratitude]; newG[idx] = e.target.value; setGratitude(newG); }}
+                />
+                {gratitude.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeGratitude(idx)}
+                    className="px-3 py-4 rounded-2xl bg-rose-100 hover:bg-rose-200 text-rose-500 font-black transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
+            {gratitude.length < 5 && (
+              <button
+                type="button"
+                onClick={addGratitude}
+                className="w-full px-6 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-600 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus size={16} /> もう一つの感謝
+              </button>
+            )}
           </div>
           <div className="space-y-4">
             <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
@@ -961,10 +1038,27 @@ const MorningForm: React.FC<{ entry?: MorningEntry; onSubmit: (e: MorningEntry) 
 };
 
 const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) => void; feedback?: string; isLoading: boolean }> = ({ entry, onSubmit, feedback, isLoading }) => {
-  const [goodThings, setGoodThings] = useState(entry?.goodThings || ['', '', '']);
+  const [goodThings, setGoodThings] = useState<string[]>(() => {
+    const saved = entry?.goodThings;
+    if (saved && saved.length > 0) return saved;
+    return [''];  // デフォルトは1つ（空）
+  });
   const [kindness, setKindness] = useState(entry?.kindness || '');
   const [insights, setInsights] = useState(entry?.insights || '');
   const [fq, setFq] = useState(entry?.followUpQuestion || '');
+
+  const addGoodThing = () => {
+    if (goodThings.length < 5) {
+      setGoodThings([...goodThings, '']);
+    }
+  };
+
+  const removeGoodThing = (idx: number) => {
+    if (goodThings.length > 1) {
+      const newG = goodThings.filter((_, i) => i !== idx);
+      setGoodThings(newG);
+    }
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom-6 fade-in duration-700">
@@ -985,25 +1079,60 @@ const EveningForm: React.FC<{ entry?: EveningEntry; onSubmit: (e: EveningEntry) 
               <Star size={14} className="text-amber-400" /> 心に灯った小さな光
             </label>
             {goodThings.map((val, idx) => (
-              <input key={idx} type="text" placeholder={`今日の宝石 ${idx + 1}`} className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={val} onChange={(e) => { const newG = [...goodThings]; newG[idx] = e.target.value; setGoodThings(newG); }} />
+              <div key={idx} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="感謝を見つけた..."
+                  className="flex-1 px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm"
+                  value={val}
+                  onChange={(e) => { const newG = [...goodThings]; newG[idx] = e.target.value; setGoodThings(newG); }}
+                />
+                {goodThings.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeGoodThing(idx)}
+                    className="px-3 py-4 rounded-2xl bg-rose-100 hover:bg-rose-200 text-rose-500 font-black transition-colors"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
+            {goodThings.length < 5 && (
+              <button
+                type="button"
+                onClick={addGoodThing}
+                className="w-full px-6 py-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus size={16} /> もう一つの光
+              </button>
+            )}
           </div>
           <div className="space-y-4">
-            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <Smile size={14} className="text-rose-400" /> 誰かに届けた優しさ
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+                <Smile size={14} className="text-rose-400" /> 誰かに届けた優しさ
+              </label>
+              <button type="button" onClick={() => setKindness('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
+            </div>
             <input type="text" placeholder="どんな光を分け合いましたか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={kindness} onChange={(e) => setKindness(e.target.value)} />
           </div>
           <div className="space-y-4">
-            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <Zap size={14} className="text-indigo-400" /> 魂が震えた気づき
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+                <Zap size={14} className="text-indigo-400" /> 魂が震えた気づき
+              </label>
+              <button type="button" onClick={() => setInsights('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
+            </div>
             <input type="text" placeholder="自分への新発見を教えてください" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={insights} onChange={(e) => setInsights(e.target.value)} />
           </div>
           <div className="space-y-4">
-            <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
-              <MessageCircle size={14} className="text-indigo-400" /> 愛のフォローアップ
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-400 flex items-center gap-2 uppercase tracking-widest ml-4">
+                <MessageCircle size={14} className="text-indigo-400" /> 愛のフォローアップ
+              </label>
+              <button type="button" onClick={() => setFq('')} className="text-xs text-slate-400 hover:text-slate-600">✕ 次へ</button>
+            </div>
             <input type="text" placeholder="誰に問いかけをしましたか？" className="w-full px-6 py-4 rounded-2xl glass-input outline-none font-bold text-slate-700 placeholder:text-slate-300/80 shadow-sm" value={fq} onChange={(e) => setFq(e.target.value)} />
           </div>
           <button type="submit" disabled={isLoading} className="group w-full py-5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-[2rem] font-black text-lg shadow-xl shadow-indigo-200/50 hover:shadow-indigo-300/60 hover:-translate-y-1 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
@@ -1464,46 +1593,6 @@ const CalendarView: React.FC<CalendarViewProps> = ({ logs, todayStr, selectedDat
           <span className="font-bold">夜の記録</span>
         </div>
       </div>
-
-      {/* Weekly Report */}
-      {weeklyReport && (
-        <div className="glass-panel p-6 md:p-8 rounded-[3rem] animate-in fade-in zoom-in-95 duration-700">
-          <div className="space-y-6">
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                <Calendar className="text-indigo-500" size={32} />
-              </div>
-              <h3 className="text-xl font-black bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent mb-2">Weekly Insight</h3>
-              <p className="text-slate-400 text-xs">{weeklyReport.startDate?.replace(/-/g, '/')} 〜 {weeklyReport.endDate?.replace(/-/g, '/')}</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-5 rounded-2xl border border-indigo-100">
-              <p className="text-slate-700 leading-relaxed text-sm font-medium">{weeklyReport.insights}</p>
-            </div>
-
-            {weeklyReport.patterns.length > 0 && (
-              <div>
-                <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-3">Your Patterns</p>
-                <div className="space-y-3">
-                  {weeklyReport.patterns.map((p, i) => (
-                    <div key={i} className="flex items-center gap-3 text-slate-600 bg-white/60 p-4 rounded-xl border border-slate-100">
-                      <div className="w-2 h-2 bg-indigo-400 rounded-full shrink-0" />
-                      <span className="text-sm">{p}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex items-center justify-center gap-3 py-3 bg-slate-50 rounded-2xl">
-              <span className="text-3xl">
-                {weeklyReport.mood === 'great' ? '🌟' : weeklyReport.mood === 'good' ? '😊' : weeklyReport.mood === 'neutral' ? '😐' : '💪'}
-              </span>
-              <span className="text-xs text-slate-400 font-bold uppercase tracking-widest">This Week's Mood</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

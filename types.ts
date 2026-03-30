@@ -1,15 +1,15 @@
 
 export interface MorningEntry {
-  gratitude: string[];
+  gratitude: string[];  // 1-5個（柔軟）
   todayGoal: string;
-  stance: string;
+  stance?: string;      // オプション
 }
 
 export interface EveningEntry {
-  goodThings: string[];
-  kindness: string;
-  insights: string;
-  followUpQuestion: string;
+  goodThings: string[];  // 1-5個（柔軟）
+  kindness?: string;      // オプション
+  insights?: string;      // オプション
+  followUpQuestion?: string; // オプション
 }
 
 export interface AIFeedback {
@@ -29,6 +29,8 @@ export interface DailyLog {
   aiFeedback?: AIFeedback;
   souvenirImageUrl?: string;
   isMissionCompleted?: boolean; // ミッション達成フラグ
+  mood?: MoodType;              // ムードチェック
+  skipped?: boolean;            // スキップした日
   updatedAt: number;
 }
 
@@ -37,6 +39,8 @@ export interface UserStats {
   streak: number;
   totalEntries: number;
   lastEntryDate?: string;
+  skipsThisMonth: number;       // 今月のスキップ回数
+  skipDates: string[];          // スキップした日付の配列
 }
 
 export const GROWTH_LEVELS = [
@@ -48,6 +52,8 @@ export const GROWTH_LEVELS = [
 ];
 
 export type Personality = 'philosopher' | 'jinnai';
+
+export type MoodType = '😊' | '😌' | '🤔' | '💪' | '😴';
 
 export interface NotificationSettings {
   enabled: boolean;
